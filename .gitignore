@@ -1,0 +1,9 @@
+ *.[oa]
+ *
+bin/
+obj/
+*~*
+build
+freetz
+fritzbox
+CodeBlocks
