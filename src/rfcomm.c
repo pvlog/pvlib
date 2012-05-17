@@ -24,10 +24,28 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+
+//workaround for libbluetooth
+//gcc compiled with c99 or c++0x does nor define typeof
+//which is needed by libbluetooth
+//
+#ifdef __GNUC__
+#	ifndef typeof
+#		define typeof __typeof__
+#		define RFCOMM_TYPEOF_DEFINED
+#	endif
+#endif// #ifndef __GNUCC__
+
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
+
+#ifdef __GNUC__
+#	ifdef RFCOMM_TYPEOF_DEFINED
+#		undef typeof
+#	endif
+#endif
 
 #include "log.h"
 #include "connection.h"
