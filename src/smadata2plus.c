@@ -860,6 +860,7 @@ static int parse_ac(uint8_t *data, int len, pvlib_ac_t *ac)
 		switch (byte_parse_u16_little(&data[pos])) {
 		case TOTAL_POWER:
 			LOG_INFO("TOTAL_POWER, type: %02X,  %d", data[pos + 2], value);
+			ac->current_power = value;
 			break;
 
 		case MAX_PHASE1:
@@ -926,6 +927,7 @@ static int parse_ac(uint8_t *data, int len, pvlib_ac_t *ac)
 
 		case FREQUENCE:
 			LOG_INFO("Frequence, type: %02X : %f", data[pos + 2], (float) value / FREQUENCE_DIVISOR);
+			ac->frequence=value * 1000 / FREQUENCE_DIVISOR;
 			break;
 		default:
 			break;
@@ -963,6 +965,9 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 {
 	int pos;
 
+    memset(dc, 0xff, sizeof(*dc));
+    dc->num_lines = 0;
+
 	pos = 13;
 	while (pos + 11 < len) {
 		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
@@ -970,6 +975,10 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 		uint8_t tracker = data[pos - 1];
 
 		if (tracker > 2) continue; //ignore more than 3 trackers for now
+
+		if ( tracker > dc->num_lines) {
+		    dc->num_lines = tracker;
+		}
 
 		switch (byte_parse_u16_little(&data[pos])) {
 		case DC_POWER:
@@ -980,7 +989,7 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 		case DC_VOLTAGE:
 			LOG_INFO("VOLLTAGE_LINE_%d: %02X : %f, time %s", tracker, data[pos + 2], (float) value
 			        / VOLTAGE_DIVISOR, ctime((time_t *) &value_time));
-			dc->power[tracker] = value * 1000 / VOLTAGE_DIVISOR;
+			dc->voltage[tracker] = value * 1000 / VOLTAGE_DIVISOR;
 			break;
 		case DC_CURRENT:
 			LOG_INFO("CURRENT_LINE_%d: %02X : %f, time %s", tracker, data[pos + 2], (float) value
@@ -993,8 +1002,6 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 
 		pos += 28;
 	}
-
-	dc->num_lines = 1; //FIXME: support for more than one tracker
 
 	return 0;
 }
@@ -1024,6 +1031,7 @@ static int parse_stats(uint8_t *data, int len, pvlib_stats_t *stats)
 {
 	int pos = 13;
 
+    memset(stats, 0xff, sizeof(*stats));
 	while (pos + 11 < len) {
 		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
 
