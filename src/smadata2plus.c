@@ -979,22 +979,26 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 		if ( tracker > dc->num_lines) {
 		    dc->num_lines = tracker;
 		}
+		if (tracker == 0) {
+		    LOG_ERROR("Invalid tracker: %d\n", tracker);
+		    continue;
+		}
 
 		switch (byte_parse_u16_little(&data[pos])) {
 		case DC_POWER:
 			LOG_INFO("POWER_LINE_%d type: %02X : %d, time %s", tracker, data[pos + 2], value,
 			        ctime((time_t *) &value_time));
-			dc->power[tracker] = value;
+			dc->power[tracker - 1] = value;
 			break;
 		case DC_VOLTAGE:
 			LOG_INFO("VOLLTAGE_LINE_%d: %02X : %f, time %s", tracker, data[pos + 2], (float) value
 			        / VOLTAGE_DIVISOR, ctime((time_t *) &value_time));
-			dc->voltage[tracker] = value * 1000 / VOLTAGE_DIVISOR;
+			dc->voltage[tracker - 1] = value * 1000 / VOLTAGE_DIVISOR;
 			break;
 		case DC_CURRENT:
 			LOG_INFO("CURRENT_LINE_%d: %02X : %f, time %s", tracker, data[pos + 2], (float) value
 			        / CURRENT_DIVISOR, ctime((time_t *) &value_time));
-			dc->current[tracker] = value * 1000 / CURRENT_DIVISOR;
+			dc->current[tracker - 1] = value * 1000 / CURRENT_DIVISOR;
 			break;
 		default:
 			break;
