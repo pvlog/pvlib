@@ -854,8 +854,7 @@ static int parse_ac(uint8_t *data, int len, pvlib_ac_t *ac)
 
 	memset(ac, 0xff, sizeof(*ac));
 
-	pos = 13;
-	while (pos + 11 < len) {
+	for (pos = 13; pos + 11 < len; pos += 28) {
 		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
 		switch (byte_parse_u16_little(&data[pos])) {
 		case TOTAL_POWER:
@@ -932,8 +931,6 @@ static int parse_ac(uint8_t *data, int len, pvlib_ac_t *ac)
 		default:
 			break;
 		}
-
-		pos += 28;
 	}
 	ac->num_lines = 1; //FIXME: support for more than one line.
 
@@ -968,8 +965,7 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
     memset(dc, 0xff, sizeof(*dc));
     dc->num_lines = 0;
 
-	pos = 13;
-	while (pos + 11 < len) {
+	for (pos = 13; pos + 11 < len; pos += 28) {
 		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
 		uint32_t value_time = byte_parse_u32_little(&data[pos + 3]);
 		uint8_t tracker = data[pos - 1];
@@ -1003,8 +999,6 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 		default:
 			break;
 		}
-
-		pos += 28;
 	}
 
 	return 0;
@@ -1033,10 +1027,10 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 
 static int parse_stats(uint8_t *data, int len, pvlib_stats_t *stats)
 {
-	int pos = 13;
+	int pos;
 
     memset(stats, 0xff, sizeof(*stats));
-	while (pos + 11 < len) {
+	for(pos=13; pos + 11 < len; pos +=16) {
 		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
 
 		switch (byte_parse_u16_little(&data[pos])) {
@@ -1059,8 +1053,6 @@ static int parse_stats(uint8_t *data, int len, pvlib_stats_t *stats)
 		default:
 			break;
 		}
-
-		pos += 16;
 	}
 
 	return 0;
