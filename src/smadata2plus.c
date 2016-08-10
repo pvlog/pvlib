@@ -372,8 +372,9 @@ static int send_password(smadata2plus_t *sma, const char *password, user_type_t 
 	buf[2] = 0xfd;
 	buf[3] = 0xff;
 	buf[4] = 0x07;
-	buf[8] = 0x84;
-	buf[9] = 0x03;
+
+	//timeout 40 years
+	byte_store_u32_little(&buf[8], 40 * 365 * 24 * 60 * 60);
 
 	cur_time = time(NULL);
 	LOG_INFO("Sending password %s at %s.", password, ctime(&cur_time));
