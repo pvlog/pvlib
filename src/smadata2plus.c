@@ -1150,7 +1150,8 @@ int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t id
     }
     printf("\n");
     for (int i = 0; i < packet.len; i++) {
-        printf("%c ", packet.data[i]);
+        if (packet.data[i] >= 20) printf("%c  ", packet.data[i]);
+        else printf("   ");
         if ((i + 1) % 20 == 0) {
             printf("\n");
         }
