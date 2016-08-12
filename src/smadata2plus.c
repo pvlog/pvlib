@@ -373,7 +373,6 @@ static int send_password(smadata2plus_t *sma, const char *password, user_type_t 
 	buf[3] = 0xff;
 	buf[4] = 0x07;
 
-	//timeout 40 years
 	byte_store_u32_little(&buf[8], 40 * 365 * 24 * 60 * 60);
 
 	cur_time = time(NULL);
@@ -1122,6 +1121,35 @@ static void close(protocol_t *prot)
 {
 	smadata2plus_close(prot->handle);
 	free(prot);
+}
+
+int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t idx1, uint32_t idx2)
+{
+    int ret;
+    smadata2plus_packet_t packet;
+    uint8_t data[512];
+
+    if ((ret = request_channel(sma, channel, idx1, idx2)) < 0) {
+        return ret;
+    }
+
+    memset(&packet, 0x00, sizeof(packet));
+    packet.data = data;
+    packet.len = sizeof(data);
+
+    if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+        return ret;
+    }
+
+    for (int i = 0; i < packet.len; i++) {
+        printf("02%x ", packet.data[i]);
+        if (i % 10) {
+            printf("\n");
+        }
+    }
+    printf("\n\n");
+
+    return 0;
 }
 
 int smadata2plus_open(protocol_t *prot, connection_t *con)

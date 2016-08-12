@@ -43,6 +43,8 @@ typedef struct smadata2plus_packet_s {
 	int      len;
 } smadata2plus_packet_t;
 
+int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t idx1, uint32_t idx2);
+
 //int smadata2plus_read_channel_(smadata2plus_t *sma, uint16_t channel, uint32_t index);
 
 //int smadata2plus_read_channel_string(smadata2plus_t *sma, uint16_t channel, uint32_t index);

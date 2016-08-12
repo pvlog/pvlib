@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-/*
+
     for (;;) {
         uint16_t channel;
         uint32_t from_index;
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 
         smadata2plus_read_channel(sma, channel, from_index, to_index);
     }
-*/
+
 
     pvlib_close(plant);
     pvlib_shutdown();
