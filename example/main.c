@@ -159,23 +159,23 @@ int main(int argc, char **argv) {
         uint16_t channel;
         uint32_t from_index;
         uint32_t to_index;
-        char buf[10];
+        char buf[20];
 
         printf("quit y, n?");
-        fgets(buf, 10, stdin);
+        fgets(buf, 20, stdin);
 
         if (buf[0] == 'y') break;
 
         printf("channel: ");
-        fgets(buf, 10, stdin);
+        fgets(buf, 20, stdin);
         channel = strtol(buf, NULL, 16);
 
         printf("from index: ");
-        fgets(buf, 10, stdin);
+        fgets(buf, 20, stdin);
         from_index = strtol(buf, NULL, 16);
 
         printf("to index: ");
-        fgets(buf, 10, stdin);
+        fgets(buf, 20, stdin);
         to_index = strtol(buf, NULL, 16);
 
         smadata2plus_read_channel(sma, channel, from_index, to_index);
