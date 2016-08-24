@@ -891,40 +891,47 @@ static int sync_time(smadata2plus_t *sma)
     time_t last_adjusted = byte_parse_u32_little(buf + 20);
     LOG_INFO("Time last adjusted: %s", ctime(&last_adjusted));
 
+    time_t inverter_time1 = byte_parse_u32_little(buf + 16);
+    time_t inverter_time2 = byte_parse_u32_little(buf + 24);
+    LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
+    LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
+
     uint32_t tz_dst = byte_parse_u32_little(buf + 28);
     int tz  = tz_dst & 0xfffffe;
     int dst = tz_dst & 0x1;
     uint32_t unknown = byte_parse_u32_little(buf + 32);
 
-
-    memset(&packet, 0x00, sizeof(packet));
-    memset(buf, 0x00, sizeof(buf));
-
-    byte_store_u32_little(buf,      0xf000020a);
-    byte_store_u32_little(buf + 4,  0x00236d00);
-    byte_store_u32_little(buf + 8,  0x00236d00);
-    byte_store_u32_little(buf + 12, 0x00236d00);
-
     time_t cur_time = time(NULL);
 
-    byte_store_u32_little(buf + 16, cur_time);
-    byte_store_u32_little(buf + 20, cur_time);
-    byte_store_u32_little(buf + 24, cur_time);
-    byte_store_u32_little(buf + 28, dst | tz);
-    byte_store_u32_little(buf + 32, unknown);
-    byte_store_u32_little(buf + 36, 1);
+    if ((abs(cur_time - inverter_time1)) > 10) {
+        memset(&packet, 0x00, sizeof(packet));
+        memset(buf, 0x00, sizeof(buf));
 
-    packet.ctrl = CTRL_MASTER;
-    packet.dst = ADDR_BROADCAST;
-    packet.flag = 0x00;
-    packet.data = buf;
-    packet.len = sizeof(buf);
-    packet.cnt = 0;
-    packet.start = 1;
+        byte_store_u32_little(buf,      0xf000020a);
+        byte_store_u32_little(buf + 4,  0x00236d00);
+        byte_store_u32_little(buf + 8,  0x00236d00);
+        byte_store_u32_little(buf + 12, 0x00236d00);
 
-    if ((ret = smadata2plus_write(sma, &packet)) < 0) {
-        LOG_ERROR("Error setting date!");
-        return ret;
+
+        byte_store_u32_little(buf + 16, cur_time);
+        byte_store_u32_little(buf + 20, cur_time);
+        byte_store_u32_little(buf + 24, cur_time);
+        byte_store_u32_little(buf + 28, dst | tz);
+        byte_store_u32_little(buf + 32, unknown);
+        byte_store_u32_little(buf + 36, 1);
+
+        packet.ctrl = CTRL_MASTER;
+        packet.dst = ADDR_BROADCAST;
+        packet.flag = 0x00;
+        packet.data = buf;
+        packet.len = sizeof(buf);
+        packet.cnt = 0;
+        packet.start = 1;
+
+        if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+            LOG_ERROR("Error setting date!");
+            return ret;
+        }
     }
 
     return 0;
