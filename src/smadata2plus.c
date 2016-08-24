@@ -901,6 +901,28 @@ static int sync_time(smadata2plus_t *sma)
     int dst = tz_dst & 0x1;
     uint32_t unknown = byte_parse_u32_little(buf + 32);
 
+    uint16_t cnt = packet.cnt;
+
+
+    memset(&packet, 0x00, sizeof(packet));
+    memset(buf, 0x00, sizeof(buf));
+
+    packet.ctrl = CTRL_MASTER | CTRL_UNKNOWN | CTRL_NO_BROADCAST;
+    packet.dst  = sma->devices[0].serial;
+    packet.flag = 0x00;
+    packet.data = buf;
+    packet.len  = 8;
+    packet.cnt   = cnt;
+    packet.start = 0;
+
+    byte_store_u32_little(buf,     0xf000020a);
+    byte_store_u32_little(buf + 4, 0x1);
+
+    if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+        LOG_ERROR("Error writing time ack!");
+        return ret;
+    }
+
     time_t cur_time = time(NULL);
 
     if ((abs(cur_time - inverter_time1)) > 10) {
