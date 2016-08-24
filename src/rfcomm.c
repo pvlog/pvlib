@@ -213,8 +213,13 @@ void rfcomm_disconnect(connection_t *con)
     free(rfcomm);
 }
 
-int rfcomm_open(connection_t *con)
+connection_t *rfcomm_open()
 {
+    connection_t *con = malloc(sizeof(*con));
+    if (con == NULL) {
+        return NULL;
+    }
+
 	con->handle = NULL;
 	con->write = rfcomm_write;
 	con->read = rfcomm_read;
@@ -223,7 +228,7 @@ int rfcomm_open(connection_t *con)
 	con->connect = rfcomm_connect;
 	con->disconnect = rfcomm_disconnect;
 
-	return 0;
+	return con;
 }
 
 const connection_info_t connection_info_rfcomm = { "rfcomm", "pvlogdev", "", rfcomm_open };
