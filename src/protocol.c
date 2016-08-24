@@ -116,6 +116,11 @@ int protocol_inverter_num(protocol_t *protocol)
 	return protocol->inverter_num(protocol);
 }
 
+int protocol_get_devices(protocol_t * protocol, uint32_t *id, int max_inverters)
+{
+    return protocol->get_devices(protocol, id, max_inverters);
+}
+
 int protocol_dc(protocol_t *protocol, uint32_t id, pvlib_dc_t *dc)
 {
 	return protocol->get_dc(protocol, id, dc);

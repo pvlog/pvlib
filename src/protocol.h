@@ -39,7 +39,7 @@ struct protocol_s {
 
 	int (*connect)(protocol_t *, const char *, const void *param);
 	void (*disconnect)(protocol_t*);
-	int (*get_handles)(protocol_t*, uint32_t, int);
+	int (*get_devices)(protocol_t*, uint32_t*, int);
 	int (*inverter_num)(protocol_t *);
 	void (*close)(protocol_t*);
 	int (*get_dc)(protocol_t *, uint32_t id, pvlib_dc_t *);
@@ -66,7 +66,7 @@ void protocol_disconnect(protocol_t *protocol);
 
 int protocol_inverter_num(protocol_t *);
 
-int protocol_get_inverters(uint32_t *id, int max_inverters);
+int protocol_get_devices(protocol_t * protocol, uint32_t *id, int max_inverters);
 
 int protocol_dc(protocol_t *protocol, uint32_t id, pvlib_dc_t *dc);
 

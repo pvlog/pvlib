@@ -1323,6 +1323,17 @@ static int smadata2plus_device_num(protocol_t *prot)
 	return sma->device_num;
 }
 
+static int smadata2plus_get_devices(protocol_t *prot, uint32_t* ids, int max_num)
+{
+    smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
+
+    for (int i = 0; i < max_num && i < sma->device_num; i++) {
+        ids[i] = sma->devices[i].serial;
+    }
+
+    return 0;
+}
+
 static void close(protocol_t *prot)
 {
 	smadata2plus_close(prot->handle);
@@ -1414,6 +1425,7 @@ int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params)
 
 	prot->handle = sma;
 	prot->inverter_num = smadata2plus_device_num;
+	prot->get_devices = smadata2plus_get_devices;
 	prot->connect = smadata2plus_connect;
 	prot->disconnect = disconnect;
 	prot->get_stats = get_stats;

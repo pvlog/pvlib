@@ -131,7 +131,7 @@ int pvlib_num_string_inverter(pvlib_plant_t *plant)
 
 int pvlib_device_handles(pvlib_plant_t *plant, uint32_t *ids, int max_handles)
 {
-	return -1; //TODO: implement
+	return protocol_get_devices(plant->protocol, ids, max_handles);
 }
 
 int pvlib_get_ac_values(pvlib_plant_t *plant, uint32_t id, pvlib_ac_t *ac)
