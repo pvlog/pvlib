@@ -101,19 +101,19 @@ static void set_state(smabluetooth_t *sma, state_t state)
 	}
 }
 
-static int wait_event(smabluetooth_t *sma, event_t event, int timeout)
-{
-	thread_mutex_lock(&sma->mutex);
-	while (sma->event_type != event) {
-		if (thread_cond_timedwait(&sma->event, &sma->mutex, timeout) < 0) {
-			return -1;
-		}
-	}
-	sma->event_type = EVENT_NO_EVENT;
-	thread_mutex_unlock(&sma->mutex);
-
-	return 0;
-}
+//static int wait_event(smabluetooth_t *sma, event_t event, int timeout)
+//{
+//	thread_mutex_lock(&sma->mutex);
+//	while (sma->event_type != event) {
+//		if (thread_cond_timedwait(&sma->event, &sma->mutex, timeout) < 0) {
+//			return -1;
+//		}
+//	}
+//	sma->event_type = EVENT_NO_EVENT;
+//	thread_mutex_unlock(&sma->mutex);
+//
+//	return 0;
+//}
 
 static int parse_header(uint8_t *buf, smabluetooth_packet_t *packet)
 {
@@ -370,6 +370,19 @@ int smabluetooth_connect(smabluetooth_t *sma)
 	smabluetooth_signal(sma, sma->mac_inv);
 
 	return 0;
+}
+
+int smabluetooth_disconnect(smabluetooth_t *sma)
+{
+    thread_mutex_lock(&sma->mutex);
+    sma->quit = true;
+    thread_mutex_unlock(&sma->mutex);
+
+    thread_join(sma->thread);
+
+    set_state(sma, STATE_NOT_CONNECTED);
+
+    return 0;
 }
 
 int smabluetooth_device_num(smabluetooth_t *sma)

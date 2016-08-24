@@ -99,13 +99,13 @@ int main(int argc, char **argv) {
 
     prot = prot_handles[i];
 
-    plant = pvlib_open(con, argv[1], NULL, prot);
+    plant = pvlib_open(con, prot, NULL, NULL);
     if (plant == NULL) {
         fprintf(stderr, "Failed opening plant!\n");
         return EXIT_FAILURE;
     }
 
-    if (pvlib_connect(plant, argv[2], NULL) < 0) {
+    if (pvlib_connect(plant, argv[1], argv[2], NULL, NULL) < 0) {
         fprintf(stderr, "Failed connection with plant!\n");
         return EXIT_FAILURE;
     }

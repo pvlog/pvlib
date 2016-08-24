@@ -62,22 +62,21 @@ int pvlib_protocols(uint32_t *protocols, int max_protocol)
 }
 
 pvlib_plant_t *pvlib_open(uint32_t connection,
-                          const char *address,
-                          const void *param,
-                          uint32_t protocol)
+                          uint32_t protocol,
+                          const void *connection_param,
+                          const void *protocol_param)
 {
 	connection_t *con;
 	protocol_t *prot;
 	pvlib_plant_t *plant;
 
-	con = connection_open(connection, address, param);
+	con = connection_open(connection);
 	if (con == NULL) {
 		return NULL;
 	}
 
-	prot = protocol_open(protocol, con);
+	prot = protocol_open(protocol, con, protocol_param);
 	if (prot == NULL) {
-		LOG_ERROR("Failed opening protocol!");
 		connection_close(con);
 		return NULL;
 	}
@@ -90,13 +89,28 @@ pvlib_plant_t *pvlib_open(uint32_t connection,
 	return plant;
 }
 
-int pvlib_connect(pvlib_plant_t *plant, const char *passwd, const void *protocol_param)
+int pvlib_connect(pvlib_plant_t *plant,
+                  const char *address,
+                  const char *passwd,
+                  const void *connection_param,
+                  const void *protocol_param)
 {
-	if (plant->protocol->connect(plant->protocol, passwd, protocol_param) < 0) {
-		return -1;
+    int ret;
+    if ((ret = connection_connect(plant->con, address, connection_param)) < 0) {
+        return ret;
+    }
+	if ((ret = protocol_connect(plant->protocol, passwd, protocol_param)) < 0) {
+	    connection_disconnect(plant->con);
+	    return ret;
 	}
 
 	return 0;
+}
+
+void pvlib_disconnect(pvlib_plant_t *plant)
+{
+    protocol_disconnect(plant->protocol);
+    connection_disconnect(plant->con);
 }
 
 void pvlib_init(FILE *file)
@@ -133,6 +147,11 @@ int pvlib_get_dc_values(pvlib_plant_t *plant, uint32_t id, pvlib_dc_t *dc)
 int pvlib_get_stats(pvlib_plant_t *plant, uint32_t id, pvlib_stats_t *stats)
 {
 	return protocol_stats(plant->protocol, id, stats);
+}
+
+int pvlib_get_status(pvlib_plant_t *plant, uint32_t id, pvlib_status_t *status)
+{
+    return protocol_status(plant->protocol, id, status);
 }
 
 void *pvlib_protocol_handle(pvlib_plant_t *plant)

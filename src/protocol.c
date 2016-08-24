@@ -77,7 +77,7 @@ const char *protocol_comment(uint32_t handle)
 	return protocols[handle]->comment;
 }
 
-protocol_t *protocol_open(uint32_t handle, connection_t *con)
+protocol_t *protocol_open(uint32_t handle, connection_t *con, const char *params)
 {
 	protocol_t protocol;
 	protocol_t *ret;
@@ -86,7 +86,7 @@ protocol_t *protocol_open(uint32_t handle, connection_t *con)
 		return NULL;
 	}
 
-	if (protocols[handle]->open(&protocol, con) < 0) {
+	if (protocols[handle]->open(&protocol, con, params) < 0) {
 		return NULL;
 	}
 
@@ -104,6 +104,11 @@ void protocol_close(protocol_t *protocol)
 int protocol_connect(protocol_t *protocol, const char *passwd, const void *param)
 {
 	return protocol->connect(protocol, passwd, param);
+}
+
+void protocol_disconnect(protocol_t *protocol)
+{
+    protocol->disconnect(protocol);
 }
 
 int protocol_inverter_num(protocol_t *protocol)
@@ -124,4 +129,9 @@ int protocol_ac(protocol_t *protocol, uint32_t id, pvlib_ac_t *ac)
 int protocol_stats(protocol_t *protocol, uint32_t id, pvlib_stats_t *stats)
 {
 	return protocol->get_stats(protocol, id, stats);
+}
+
+int protocol_status(protocol_t *protocol, uint32_t id, pvlib_status_t *status)
+{
+    return protocol->get_status(protocol, id, status);
 }

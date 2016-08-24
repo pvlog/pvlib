@@ -72,6 +72,11 @@ typedef struct pvlib_stats_s {
 	uint32_t feed_in_time; ///<feed in time in seconds
 } pvlib_stats_t;
 
+typedef struct pvlib_status_s {
+    uint32_t number;
+    char *message;
+} pvlib_status_t;
+
 /**
  * Initialize pvlib.
  *
@@ -148,9 +153,9 @@ const char *pvlib_protocol_name(uint32_t protocol);
  * @return on error(invalid connection or protocol handle) NULL.
  */
 pvlib_plant_t *pvlib_open(uint32_t connection,
-                          const char *address,
-                          const void *param,
-                          uint32_t protocol);
+                          uint32_t protocol,
+                          const void *connection_param,
+                          const void *protocol_param);
 
 /**
  * Connect to plant/string_inverter
@@ -161,7 +166,16 @@ pvlib_plant_t *pvlib_open(uint32_t connection,
  * @param protocol_param protocol specific.
  *
  */
-int pvlib_connect(pvlib_plant_t *plant, const char *passwd, const void *param);
+int pvlib_connect(pvlib_plant_t *plant,
+                  const char *address,
+                  const char *passwd,
+                  const void *connection_param,
+                  const void *protocol_param);
+
+/**
+ * Disconnect plant/string_inverter.
+ */
+void pvlib_disconnect(pvlib_plant_t *plant);
 
 /**
  * Close connection to plant or string inverter.
@@ -216,6 +230,16 @@ int pvlib_get_ac_values(pvlib_plant_t *plant, uint32_t id, pvlib_ac_t *ac);
  * @param[out] id string converter id
  */
 int pvlib_get_stats(pvlib_plant_t *plant, uint32_t id, pvlib_stats_t *stats);
+
+/**
+ * Get status from inverter
+ *
+ * @param plant plant handle
+ * @param id inverter id
+ * @param[out] status inverter status
+ * @return negative on failure 0 on success and good status and positive on success and bad status.
+ */
+int pvlib_get_status(pvlib_plant_t *plant, uint32_t id, pvlib_status_t *status);
 
 /**
  * Returns protocol handle.

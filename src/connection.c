@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include "connection.h"
+#include "connection_private.h"
 
 extern const connection_info_t connection_info_rfcomm;
 
@@ -79,23 +80,23 @@ const char *connection_comment(uint32_t handle)
 	return connections[handle]->comment;
 }
 
-connection_t *connection_open(uint32_t handle, const char *address, const void *param)
+connection_t *connection_open(uint32_t handle)
 {
-	connection_t con;
-	connection_t *ret;
-
 	if (handle >= connection_num()) {
 		return NULL;
 	}
 
-	if (connections[handle]->open(&con, address, param) < 0) {
-		return NULL;
-	}
+	return connections[handle]->open();
+}
 
-	ret = malloc(sizeof(*ret));
-	memcpy(ret, &con, sizeof(*ret));
+int connection_connect(connection_t *con, const char *address, const void *param)
+{
+    return con->connect(con, address, param);
+}
 
-	return ret;
+void connection_disconnect(connection_t *con)
+{
+    con->disconnect(con);
 }
 
 int connection_write(connection_t *con, const uint8_t *data, int len)

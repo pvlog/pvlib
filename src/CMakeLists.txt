@@ -7,6 +7,7 @@ set(src	log.c
 	connection.c
 	pvlib.c
 	thread.c
+	resources.c
 )
 	
 #add_library(pvlib SHARED ${src})

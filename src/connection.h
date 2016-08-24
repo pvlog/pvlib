@@ -30,13 +30,6 @@
 /** connection handle */
 typedef struct connection_s connection_t;
 
-typedef struct connection_info_s {
-	const char *name;
-	const char *author;
-	const char *comment;
-	int (*open)(connection_t *con, const char *, const void *);
-} connection_info_t;
-
 typedef struct connection_data_s {
 	char src_name[CONNECTION_MAX_NAME]; ///< Our name.
 	uint8_t src_address[6]; ///< Our address.
@@ -46,15 +39,6 @@ typedef struct connection_data_s {
 
 	int address_len; ///< Length of address, depends on connection type.
 } connection_data_t;
-
-struct connection_s {
-	void *handle;
-
-	int (*write)(connection_t *con, const uint8_t *data, int len);
-	int (*read)(connection_t *con, uint8_t *data, int max_len, int timeout);
-	int (*info)(connection_t *con, connection_data_t * info);
-	void (*close)(connection_t *con);
-};
 
 int connection_num(void);
 
@@ -66,7 +50,11 @@ const char *connection_author(uint32_t handle);
 
 const char *connection_comment(uint32_t handle);
 
-connection_t * connection_open(uint32_t handle, const char *address, const void *param);
+connection_t * connection_open(uint32_t handle);
+
+int connection_connect(connection_t *con, const char *address, const void *param);
+
+void connection_disconnect(connection_t *con);
 
 /**
  * Write data.

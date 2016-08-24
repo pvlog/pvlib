@@ -30,7 +30,7 @@ typedef struct protocol_info_s {
 	const char *name;
 	const char *author;
 	const char *comment;
-	int (*open)(protocol_t *, connection_t *);
+	int (*open)(protocol_t *, connection_t *, const char *params);
 } protocol_info_t;
 
 struct protocol_s {
@@ -38,12 +38,14 @@ struct protocol_s {
 	void *handle;
 
 	int (*connect)(protocol_t *, const char *, const void *param);
+	void (*disconnect)(protocol_t*);
 	int (*get_handles)(protocol_t*, uint32_t, int);
 	int (*inverter_num)(protocol_t *);
 	void (*close)(protocol_t*);
 	int (*get_dc)(protocol_t *, uint32_t id, pvlib_dc_t *);
 	int (*get_ac)(protocol_t *, uint32_t id, pvlib_ac_t *);
 	int (*get_stats)(protocol_t *, uint32_t id, pvlib_stats_t *);
+	int (*get_status)(protocol_t *, uint32_t id, pvlib_status_t *);
 };
 
 int protocol_num(void);
@@ -56,9 +58,11 @@ const char *protocol_author(uint32_t handle);
 
 const char *protocol_comment(uint32_t handle);
 
-protocol_t *protocol_open(uint32_t handle, connection_t *con);
+protocol_t *protocol_open(uint32_t handle, connection_t *con, const char *params);
 
 int protocol_connect(protocol_t *protocol, const char *password, const void *param);
+
+void protocol_disconnect(protocol_t *protocol);
 
 int protocol_inverter_num(protocol_t *);
 
@@ -69,6 +73,8 @@ int protocol_dc(protocol_t *protocol, uint32_t id, pvlib_dc_t *dc);
 int protocol_ac(protocol_t *protocol, uint32_t id, pvlib_ac_t *dc);
 
 int protocol_stats(protocol_t *protocol, uint32_t id, pvlib_stats_t *stats);
+
+int protocol_status(protocol_t *protocol, uint32_t id, pvlib_status_t *status);
 
 void protocol_close(protocol_t *protocol);
 

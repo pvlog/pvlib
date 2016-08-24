@@ -25,6 +25,8 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 
+#include "connection_private.h"
+
 //workaround for libbluetooth
 //gcc compiled with c99 or c++0x does nor define typeof
 //which is needed by libbluetooth
@@ -202,16 +204,26 @@ static int rfcomm_connect(connection_t *con, const char *address, const void *pa
 	return -1;
 }
 
-int rfcomm_open(connection_t *con, const char *address, const void *param)
+void rfcomm_disconnect(connection_t *con)
+{
+    struct rfcomm_handle *rfcomm = con->handle;
+    if (rfcomm == NULL) return;
+
+    close(rfcomm->socket);
+    free(rfcomm);
+}
+
+int rfcomm_open(connection_t *con)
 {
 	con->handle = NULL;
 	con->write = rfcomm_write;
 	con->read = rfcomm_read;
 	con->info = rfcomm_info;
 	con->close = rfcomm_close;
-	//    con->connect = rfcomm_connect;
+	con->connect = rfcomm_connect;
+	con->disconnect = rfcomm_disconnect;
 
-	return rfcomm_connect(con, address, param);
+	return 0;
 }
 
 const connection_info_t connection_info_rfcomm = { "rfcomm", "pvlogdev", "", rfcomm_open };

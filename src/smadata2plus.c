@@ -32,6 +32,8 @@
 #include "byte.h"
 #include "pvlib.h"
 #include "protocol.h"
+#include "uthash.h"
+#include "resources.h"
 
 #define PROTOCOL 0x6560
 #define HEADER_SIZE 24
@@ -92,6 +94,15 @@ typedef struct devices_s {
 	bool authenticated;
 } device_t;
 
+struct tag_hash {
+    int num;
+    char tag[128];
+    char message[256];
+
+    UT_hash_handle hh;
+};
+
+
 struct smadata2plus_s {
 	connection_t *con;
 	smabluetooth_t *sma;
@@ -100,7 +111,75 @@ struct smadata2plus_s {
 
 	device_t *devices;
 	int device_num;
+
+	struct tag_hash *tags;
+
 };
+
+
+static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message) {
+    struct tag_hash *s;
+    s = malloc(sizeof(*s));
+    if (s == NULL) {
+        LOG_ERROR("malloc failed!");
+        return -1;
+    }
+
+    s->num = tag_num;
+    strncpy(s->tag, tag, sizeof(s->tag) - 1);
+    strncpy(s->message, tag_message, sizeof(s->message) - 1);
+
+    HASH_ADD_INT(sma->tags, num, s);
+
+    return 0;
+}
+
+static struct tag_hash *find_tag(smadata2plus_t *sma, int num)
+{
+    struct tag_hash *s;
+
+    HASH_FIND_INT(sma->tags, &num, s);
+
+    return s;
+}
+
+static int read_tags(smadata2plus_t *sma, FILE *file)
+{
+    int ret;
+
+    char buf[256];
+    char tag_num[256];
+    char tag[256];
+    char tag_name[256];
+
+    while (fgets(buf, sizeof(buf), file) != NULL) {
+        if (buf[0] == '#') { //remove comments
+            continue;
+        }
+
+        sscanf("%s=%s;%s", tag_num, tag, tag_name);
+        errno = 0;
+        long num = strtol(tag_num, NULL, 10);
+        if (errno != 0) {
+            LOG_ERROR("Error parsing tag number from %s", tag_num);
+            return -1;
+        }
+
+        if ((ret = add_tag(sma, num, tag, tag_name)) < 0) {
+            return ret;
+        }
+    }
+
+    if (ferror(file)) {
+        LOG_ERROR("Error reading tag file: %s", strerror(errno));
+        fclose(file);
+        return -1;
+    }
+
+    fclose(file);
+    return 0;
+
+}
 
 static void reset_pkt_cnt(uint16_t *pkt_cnt)
 {
@@ -140,18 +219,10 @@ static int serial_to_mac(uint8_t *mac, device_t *devices, int device_num, uint32
 
 static int connect_bluetooth(smadata2plus_t *sma)
 {
-	int signal;
-
 	if (smabluetooth_connect(sma->sma) < 0) {
 		return -1;
 	}
-	/*
-	 signal = smabluetooth_signal(sma->sma);
 
-	 if (signal < 0) return -1;
-
-	 LOG_INFO("Signal strength: %d percent.", signal);
-	 */
 	return 0;
 }
 
@@ -747,6 +818,7 @@ static smadata2plus_t *init(connection_t *con)
 	sma->con = con;
 	sma->sma = smabluetooth;
 	sma->smanet = smanet;
+	sma->tags = NULL;
 
 	reset_pkt_cnt(&sma->pkt_cnt);
 
@@ -775,26 +847,117 @@ void smadata2plus_close(smadata2plus_t *sma)
  }
  */
 
+static int sync_time(smadata2plus_t *sma)
+{
+    smadata2plus_packet_t packet;
+    uint8_t buf[40];
+    int ret;
+
+    packet.ctrl = CTRL_MASTER;
+    packet.dst = ADDR_BROADCAST;
+    packet.flag = 0x00;
+    packet.data = buf;
+    packet.len = 40;
+    packet.cnt = 0;
+    packet.start = 1;
+
+    byte_store_u32_little(buf,      0xf000020a);
+    byte_store_u32_little(buf + 4,  0x00236d00);
+    byte_store_u32_little(buf + 8,  0x00236d00);
+    byte_store_u32_little(buf + 12, 0x00236d00);
+    byte_store_u32_little(buf + 16, 0);
+    byte_store_u32_little(buf + 20, 0);
+    byte_store_u32_little(buf + 24, 0);
+    byte_store_u32_little(buf + 24, 0);
+    byte_store_u32_little(buf + 28, 1);
+    byte_store_u32_little(buf + 32, 1);
+
+    if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+        return ret;
+    }
+
+
+    if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+     LOG_ERROR("smadata2plus_read failed!");
+     return ret;
+    }
+
+    if (packet.len != 40) {
+     LOG_ERROR("Invalid packet!");
+     return -1;
+    }
+
+    time_t last_adjusted = byte_parse_u32_little(buf + 20);
+    LOG_INFO("Time last adjusted: %s", ctime(&last_adjusted));
+
+    uint32_t tz_dst = byte_parse_u32_little(buf + 28);
+    int tz  = tz_dst & 0xfffffe;
+    int dst = tz_dst & 0x1;
+    uint32_t unknown = byte_parse_u32_little(buf + 32);
+
+
+    memset(&packet, 0x00, sizeof(packet));
+    memset(buf, 0x00, sizeof(buf));
+
+    byte_store_u32_little(buf,      0xf000020a);
+    byte_store_u32_little(buf + 4,  0x00236d00);
+    byte_store_u32_little(buf + 8,  0x00236d00);
+    byte_store_u32_little(buf + 12, 0x00236d00);
+
+    time_t cur_time = time(NULL);
+
+    byte_store_u32_little(buf + 16, cur_time);
+    byte_store_u32_little(buf + 20, cur_time);
+    byte_store_u32_little(buf + 24, cur_time);
+    byte_store_u32_little(buf + 28, dst | tz);
+    byte_store_u32_little(buf + 32, unknown);
+    byte_store_u32_little(buf + 36, 1);
+
+    packet.ctrl = CTRL_MASTER;
+    packet.dst = ADDR_BROADCAST;
+    packet.flag = 0x00;
+    packet.data = buf;
+    packet.len = sizeof(buf);
+    packet.cnt = 0;
+    packet.start = 1;
+
+    if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+        return ret;
+    }
+
+    return 0;
+}
+
 int smadata2plus_connect(protocol_t *prot, const char *password, const void *param)
 {
-	smadata2plus_packet_t packet;
 	smadata2plus_t *sma;
-	uint32_t serial = 0x7d2d131f;
 	int device_num;
+	int ret;
 
-	sma = (smadata2plus_t*) prot->handle;
+	sma = (smadata2plus_t*)prot->handle;
 
-	packet.len = 0;
-	packet.data = NULL;
-
-	if (connect_bluetooth(sma) < 0) return -1;
+	if ((ret = connect_bluetooth(sma)) < 0) {
+	    LOG_ERROR("Connecting bluetooth failed!");
+	    return ret;
+	}
 
 	device_num = smabluetooth_device_num(sma->sma);
 	LOG_INFO("%d devices!", device_num);
 
-	if (discover_devices(sma, device_num) < 0) return -1;
+	if ((ret = discover_devices(sma, device_num)) < 0) {
+	    LOG_ERROR("Device discover failed!");
+	    return ret;
+	}
 
-	if (authenticate(sma, password, PASSWORD_USER) < 0) return -1;
+	if ((ret = authenticate(sma, password, PASSWORD_USER)) < 0) {
+	    LOG_ERROR("Authentication failed!");
+	    return ret;
+	}
+
+	if ((ret = sync_time(sma)) < 0) {
+	    LOG_ERROR("Sync time failed!");
+	    return ret;
+	}
 
 	return 0;
 
@@ -1076,6 +1239,47 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 	parse_stats(packet.data, packet.len, stats);
 	return 0;
 }
+
+static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
+{
+    smadata2plus_t *sma;
+    smadata2plus_packet_t packet;
+    uint8_t data[512];
+    int ret;
+
+    sma = (smadata2plus_t*) prot->handle;
+
+    memset(&packet, 0x00, sizeof(packet));
+    packet.data = data;
+    packet.len = sizeof(data);
+
+    if ((ret = request_channel(sma, 0x5400, 0x200000, 0x50ffff)) < 0) {
+        return ret;
+    }
+
+    if ((ret = smadata2plus_read(sma, &packet) < 0)) {
+        return -1;
+    }
+
+    status->message = NULL;
+    status->number  = 0;
+
+    time_t time = byte_parse_u32_little(&data[16]);
+
+    for (int pos = 20; pos < 40; pos += 4) {
+        uint32_t attribute_value = byte_parse_u32_little(&data[pos]) & 0x00FFFFFF;
+        uint8_t attribute_key = data[pos + 3];
+        if (attribute_value == 0xFFFFFE) break;   //End of attributes
+        if (attribute_key == 1) {
+            status->number = attribute_value;
+        }
+
+        LOG_DEBUG("attr %d has value: %d", attribute_key, attribute_value);
+    }
+
+    return 0;
+}
+
 #if 0
 int smadata2plus_test(smadata2plus_t *sma)
 {
@@ -1161,20 +1365,59 @@ int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t id
     return 0;
 }
 
-int smadata2plus_open(protocol_t *prot, connection_t *con)
+static void disconnect(protocol_t *prot)
+{
+    smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
+    smabluetooth_close(sma->sma);
+}
+
+int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params)
 {
 	smadata2plus_t *sma;
+	int ret;
+
 
 	sma = init(con);
 
 	if (sma == NULL) return -1;
 
+	FILE *tag_file = NULL;
+	size_t file_length = strlen("en_US_tags.txt");
+    char tag_path[strlen(resources_path()) + 1 + file_length + 1];
+	if (params != NULL && strlen(params) == 5) {;
+	    strcpy(tag_path, resources_path());
+	    strcat(tag_path, params);
+	    strcat(tag_path, "_tags.txt");
+
+	     tag_file = fopen(tag_path, "r");
+	     if (tag_file == NULL) {
+	         LOG_ERROR("tag file for local %s doesn't exist.", params);
+	     }
+	}
+
+    if (tag_file == NULL) {
+        strcpy(tag_path, resources_path());
+        strcat(tag_path, "en_US_tags.txt");
+        tag_file = fopen(tag_path, "r");
+    }
+
+    if (tag_file == NULL) {
+        return -1;
+    }
+
+	//params only contains filename to tag file
+    if ((ret = read_tags(sma, tag_file)) < 0) {
+        return ret;
+    }
+
 	prot->handle = sma;
 	prot->inverter_num = smadata2plus_device_num;
 	prot->connect = smadata2plus_connect;
+	prot->disconnect = disconnect;
 	prot->get_stats = get_stats;
 	prot->get_ac = get_ac;
 	prot->get_dc = get_dc;
+	prot->get_status = get_status;
 	prot->close = close;
 
 	return 0;
