@@ -873,6 +873,7 @@ static int sync_time(smadata2plus_t *sma)
     byte_store_u32_little(buf + 32, 1);
 
     if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+        LOG_ERROR("Error reading inverter date!");
         return ret;
     }
 
@@ -922,6 +923,7 @@ static int sync_time(smadata2plus_t *sma)
     packet.start = 1;
 
     if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+        LOG_ERROR("Error setting date!");
         return ret;
     }
 
