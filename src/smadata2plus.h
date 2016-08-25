@@ -32,12 +32,12 @@ typedef struct smadata2plus_s smadata2plus_t;
 
 typedef struct smadata2plus_packet_s {
 	uint8_t  src_mac[6];
-	uint16_t pkt_cnt;
+	uint16_t transaction_cntr;
 	uint8_t  ctrl;
 	uint32_t dst;
 	uint32_t src;
 	uint8_t  flag; /* unknown */
-	uint16_t cnt;
+	uint16_t packet_num;
 	bool     start;
 	uint8_t  *data;
 	int      len;

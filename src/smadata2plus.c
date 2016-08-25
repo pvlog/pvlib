@@ -263,13 +263,59 @@ static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet
 	if (packet->ctrl == 0xe8) buf[17] = 0;
 	else buf[17] = packet->flag;
 
-	if (packet->start) buf[20] = packet->cnt;
+	if (packet->start) buf[20] = packet->packet_num;
 
 	byte_store_u16_little(&buf[22], sma->pkt_cnt);
 
 	memcpy(&buf[size], packet->data, packet->len);
 
 	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
+}
+
+static int smadata2plus_write_replay(smadata2plus_t *sma, smadata2plus_packet_t *packet, uint16_t transaction_cntr)
+{
+    uint8_t buf[511 + HEADER_SIZE];
+    uint8_t size = HEADER_SIZE;
+    uint8_t mac_dst[6];
+
+    assert(packet->len + HEADER_SIZE <= sizeof(buf));
+    assert(packet->len % 4 == 0);
+
+    memset(buf, 0x00, HEADER_SIZE);
+
+    buf[0] = (packet->len + HEADER_SIZE) / 4;
+    buf[1] = packet->ctrl;
+
+    if (packet->dst == SMADATA2PLUS_BROADCAST) {
+        buf[2] = 0xff;
+        buf[3] = 0xff;
+        memcpy(mac_dst, MAC_BROADCAST, 6);
+    } else {
+        if (serial_to_mac(mac_dst, sma->devices, sma->device_num, packet->dst) < 0) {
+            LOG_ERROR("device: %d not in device list!", packet->dst);
+            return -1;
+        }
+        buf[2] = 0x4e;
+        buf[3] = 0x00;
+    }
+    byte_store_u32_little(&buf[4], packet->dst);
+
+    buf[9] = packet->flag;
+
+    buf[10] = 0x78;
+    buf[11] = 0x00;
+    byte_store_u32_little(&buf[12], smadata2plus_serial);
+
+    if (packet->ctrl == 0xe8) buf[17] = 0;
+    else buf[17] = packet->flag;
+
+    if (packet->start) buf[20] = packet->packet_num;
+
+    byte_store_u16_little(&buf[22], transaction_cntr);
+
+    memcpy(&buf[size], packet->data, packet->len);
+
+    return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
 }
 
 static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
@@ -291,7 +337,7 @@ static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 	packet->src = byte_parse_u32_little(&buf[12]);
 	packet->flag = buf[9];
 	packet->start = (buf[23] == 0x80) ? 1 : 0; //Fix
-	packet->pkt_cnt = byte_parse_u16_little(&buf[22]);
+	packet->transaction_cntr = byte_parse_u16_little(&buf[22]);
 
 	len -= HEADER_SIZE;
 	if (len < packet->len) packet->len = len;
@@ -349,7 +395,7 @@ static int request_channel(smadata2plus_t *sma,
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = sizeof(buf);
-	packet.cnt = 0;
+	packet.packet_num = 0;
 	packet.start = 1;
 
 	buf[0] = 0x00;
@@ -433,7 +479,7 @@ static int send_password(smadata2plus_t *sma, const char *password, user_type_t 
 	packet.flag = 0x01;
 	packet.data = buf;
 	packet.len = sizeof(buf);
-	packet.cnt = 0;
+	packet.packet_num = 0;
 	packet.start = true;
 
 	memset(buf, 0x00, sizeof(buf));
@@ -474,7 +520,7 @@ int auth_acknowledge(smadata2plus_t *sma, uint32_t serial)
 	packet.flag = 0x01;
 	packet.data = buf;
 	packet.len  = sizeof(buf);
-	packet.cnt  = 0;
+	packet.packet_num  = 0;
 	packet.start = 1;
 
 	buf[0] = 0x0d;
@@ -573,7 +619,7 @@ static int send_time(smadata2plus_t *sma)
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = sizeof(buf);
-	packet.cnt = 0;
+	packet.packet_num = 0;
 	packet.start = 1;
 
 	ret = smadata2plus_write(sma, &packet);
@@ -651,7 +697,7 @@ static int cmd_A008(smadata2plus_t *sma)
 	packet.flag = 0x03;
 	packet.data = buf;
 	packet.len = sizeof(buf);
-	packet.cnt = 0;
+	packet.packet_num = 0;
 	packet.start = 1;
 
 	ret = smadata2plus_write(sma, &packet);
@@ -677,7 +723,7 @@ static int cmd_E808(smadata2plus_t *sma, uint32_t serial)
 	packet.flag = 0x01;
 	packet.data = buf;
 	packet.len = sizeof(buf);
-	packet.cnt = 0;
+	packet.packet_num = 0;
 	packet.start = 1;
 
 	//new_transaction(sma);
@@ -858,7 +904,7 @@ static int sync_time(smadata2plus_t *sma)
     packet.flag = 0x00;
     packet.data = buf;
     packet.len = 40;
-    packet.cnt = 0;
+    packet.packet_num = 0;
     packet.start = 1;
 
     byte_store_u32_little(buf,      0xf000020a);
@@ -900,8 +946,7 @@ static int sync_time(smadata2plus_t *sma)
     int tz  = tz_dst & 0xfffffe;
     int dst = tz_dst & 0x1;
     uint32_t unknown = byte_parse_u32_little(buf + 32);
-
-    uint16_t cnt = packet.cnt;
+    uint16_t transaction_cntr = packet.transaction_cntr;
 
 
     memset(&packet, 0x00, sizeof(packet));
@@ -912,13 +957,13 @@ static int sync_time(smadata2plus_t *sma)
     packet.flag = 0x00;
     packet.data = buf;
     packet.len  = 8;
-    packet.cnt   = cnt;
+    packet.packet_num   = 0;
     packet.start = 0;
 
     byte_store_u32_little(buf,     0xf000020a);
     byte_store_u32_little(buf + 4, 0x1);
 
-    if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+    if ((ret = smadata2plus_write_replay(sma, &packet, transaction_cntr)) < 0) {
         LOG_ERROR("Error writing time ack!");
         return ret;
     }
@@ -947,7 +992,7 @@ static int sync_time(smadata2plus_t *sma)
         packet.flag = 0x00;
         packet.data = buf;
         packet.len = sizeof(buf);
-        packet.cnt = 0;
+        packet.packet_num = 0;
         packet.start = 1;
 
         if ((ret = smadata2plus_write(sma, &packet)) < 0) {
