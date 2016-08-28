@@ -1354,7 +1354,12 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
         if (attribute_key == 1) {
             status->number = attribute_value;
             struct tag_hash *tag_hash = find_tag(sma, status->number);
-            status->message = tag_hash->message;
+
+            if (tag_hash == NULL) {
+                status->message = "Unknown status message";
+            } else {
+                status->message = tag_hash->message;
+            }
         }
 
         LOG_DEBUG("attr %d has value: %d", attribute_key, attribute_value);
