@@ -1334,7 +1334,7 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
     packet.data = data;
     packet.len = sizeof(data);
 
-    if ((ret = request_channel(sma, 0x5400, 0x200000, 0x50ffff)) < 0) {
+    if ((ret = request_channel(sma, 0x5180, 0x214800, 0x2148ff)) < 0) {
         return ret;
     }
 
@@ -1353,6 +1353,8 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
         if (attribute_value == 0xFFFFFE) break;   //End of attributes
         if (attribute_key == 1) {
             status->number = attribute_value;
+            struct tag_hash *tag_hash = find_tag(sma, status->number);
+            status->message = tag_hash->message;
         }
 
         LOG_DEBUG("attr %d has value: %d", attribute_key, attribute_value);
