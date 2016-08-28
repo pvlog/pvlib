@@ -157,7 +157,11 @@ static int read_tags(smadata2plus_t *sma, FILE *file)
             continue;
         }
 
-        sscanf("%s=%s;%s", tag_num, tag, tag_name);
+        if (sscanf(buf, "%[^'=']=%[^';'];%s", tag_num, tag, tag_name) != 3) {
+            LOG_ERROR("Invalid line %s (Ignoring it)", buf);
+            continue;
+        }
+
         errno = 0;
         long num = strtol(tag_num, NULL, 10);
         if (errno != 0) {
