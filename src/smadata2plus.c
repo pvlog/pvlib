@@ -1240,6 +1240,11 @@ static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
 		}
 	}
 
+	dc->current_power = 0;
+	for (int i = 0; i < dc->num_lines; i++) {
+	    dc->current_power += dc->power[i];
+	}
+
 	return 0;
 }
 
