@@ -1509,6 +1509,7 @@ int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params)
     }
 
     if (tag_file == NULL) {
+    	LOG_ERROR("tag file  %s doesn't exist.", tag_path);
         return -1;
     }
 
