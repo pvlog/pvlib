@@ -60,20 +60,21 @@ void log_hex(log_severity_t severity,
              uint8_t *data,
              int len)
 {
-	//thread_mutex_lock(&mutex);
-	if (log_severity & severity) {
-		int i = 0;
+    //thread_mutex_lock(&mutex);
+    if (log_severity & severity) {
+        int i = 0;
 
-		fprintf(fd, "%s, %d: %s", filename(file), line, message);
+        fprintf(fd, "------------------------------------------------------------------------------\n");
+        fprintf(fd, "%s, %d %s\n", filename(file), line, message);
+        for (i = 0; i < len; i++) {
+            fprintf(fd, "%02X ", data[i]);
+            if (!((i + 1) % 16) || i + 1 == len) fprintf(fd, "\n");
+        }
+        fprintf(fd, "------------------------------------------------------------------------------\n");
 
-		for (i = 0; i < len; i++) {
-			fprintf(fd, "%02X ", data[i]);
-			if (!((i + 1) % 16)) fprintf(fd, "\n");
-		}
-
-		fprintf(fd, "\n");
-	}
-	//thread_mutex_unlock(&mutex);
+        fprintf(fd, "\n");
+    }
+    //thread_mutex_unlock(&mutex);
 }
 
 void log_log(log_severity_t severity, const char *file, int line, const char *format, ...)

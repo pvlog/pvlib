@@ -220,7 +220,6 @@ static int read_frame(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
 		return -1;
 	}
 
-	LOG_HEX("smanet, read:\n", buf, i);
 	if (validate_frame(buf, i) < 0) {
 		LOG_ERROR("Invalid frame!");
 		return -1;
@@ -290,6 +289,5 @@ int smanet_write(smanet_t *smanet, uint8_t *data, int len, const uint8_t *to)
 	buf[pos++] = (fcs >> 8) & 0x00ff;
 	buf[pos++] = 0x7e;
 
-	LOG_HEX("smanet write:\n", buf, pos);
 	return con_write(smanet, buf, pos, to);
 }

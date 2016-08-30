@@ -317,13 +317,8 @@ static void *worker_thread(void *arg)
 				goto error;
 			}
 
-			LOG_DEBUG("recivied smabluetooth packet!");
-			LOG_DEBUG("cmd : %02X", packet.cmd);
-			LOG_DEBUG("len : %d", packet.len);
-			LOG_HEX("from: ", packet.mac_src, 6);
-			LOG_HEX("to  : ", packet.mac_dst, 6);
-			LOG_HEX("data:\n", packet.data, packet.len);
-			LOG_DEBUG("\n");
+			LOG_TRACE_HEX("received smabluetooth packet", packet.data, packet.len);
+
 
 			if (for_us) {
 				if (packet_event(sma, &packet) < 0) {
@@ -457,7 +452,7 @@ int smabluetooth_write(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 
 	memcpy(&buf[18], packet->data, packet->len);
 
-	LOG_HEX("smabluetooth, write:\n", buf, len);
+	LOG_TRACE_HEX("smabluetooth, write", buf, len);
 
 	thread_mutex_lock(&sma->write_mutex);
 	if (connection_write(sma->con, buf, len) < 0) {

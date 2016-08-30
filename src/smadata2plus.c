@@ -273,6 +273,8 @@ static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet
 
 	memcpy(&buf[size], packet->data, packet->len);
 
+	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
+
 	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
 }
 
@@ -335,6 +337,8 @@ static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 		LOG_ERROR("smanet_read failed.");
 		return -1;
 	}
+
+	LOG_TRACE_HEX("read smadata2plus packet", buf, packet->len + size);
 
 	packet->ctrl = buf[1];
 	packet->dst = byte_parse_u32_little(&buf[4]);

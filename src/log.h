@@ -26,10 +26,11 @@
 
 typedef enum {
 	LOG_DISABLE = 0,
-	LOG_INFO = 1,
-	LOG_ERROR = 2,
-	LOG_DEBUG = 4,
-	LOG_WARNING = 8,
+	LOG_ERROR = 1,
+	LOG_WARNING = 2,
+	LOG_INFO = 4,
+	LOG_DEBUG = 8,
+	LOG_TRACE = 16,
 	LOG_ALL = (int) (-1)
 } log_severity_t;
 
@@ -46,10 +47,12 @@ void log_hex(log_severity_t severity,
              uint8_t *data,
              int len);
 
+#define LOG_TRACE(...) log_log(LOG_TRACE, __FILE__, __LINE__, __VA_ARGS__)
 #define LOG_ERROR(...) log_log(LOG_ERROR, __FILE__, __LINE__,  __VA_ARGS__)
 #define LOG_INFO(...) log_log(LOG_INFO, __FILE__, __LINE__,  __VA_ARGS__)
 #define LOG_WARNING(...) log_log(LOG_WARNING, __FILE__, __LINE__,  __VA_ARGS__)
 #define LOG_DEBUG(...) log_log(LOG_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
-#define LOG_HEX(MESSAGE, DATA, LEN) log_hex(LOG_DEBUG, __FILE__, __LINE__, MESSAGE, DATA, LEN)
+#define LOG_TRACE_HEX(MESSAGE, DATA, LEN) log_hex(LOG_TRACE, __FILE__, __LINE__, MESSAGE, DATA, LEN)
+#define LOG_DEBUG_HEX(MESSAGE, DATA, LEN) log_hex(LOG_TRACE, __FILE__, __LINE__, MESSAGE, DATA, LEN)
 
 #endif /* #ifndef LOG_H */
