@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
     pvlib_ac_t ac;
     pvlib_dc_t dc;
     pvlib_stats_t stats;
+    pvlib_status_t status;
 
     int inv_num;
     uint32_t inv_handle;
@@ -129,7 +130,7 @@ int main(int argc, char **argv) {
 */
     inv_handle = 0;
 
-    for (i = 0; i < 1; i++) {
+    for (i = 0; i < 2; i++) {
         if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
             fprintf(stderr, "get live values failed!\n");
             return -1;
@@ -145,7 +146,13 @@ int main(int argc, char **argv) {
             return -1;
         }
 
-        //usleep(1 * 1000);
+        if (pvlib_get_status(plant, inv_handle, &status) < 0) {
+            fprintf(stderr, "get stats failed!\n");
+            return -1;
+        }
+        printf("status: %d %s\n",status.number, status.message);
+
+        usleep(1 * 1000);
     }
 
     sma = pvlib_protocol_handle(plant);
