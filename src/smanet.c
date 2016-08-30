@@ -100,7 +100,6 @@ static int con_write(smanet_t *smanet, uint8_t *data, int len, const uint8_t *to
 		}
 	}
 
-	LOG_DEBUG("con_write successfully.");
 	return 0;
 }
 
