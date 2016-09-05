@@ -64,13 +64,7 @@ struct rfcomm_handle {
 
 static void rfcomm_close(connection_t *con)
 {
-	struct rfcomm_handle *rfcomm;
-
-	rfcomm = (struct rfcomm_handle *) con->handle;
-	if (rfcomm == NULL) return;
-
-	close(rfcomm->socket);
-	free(rfcomm);
+	rfcomm_disconnect(con);
 	free(con);
 }
 
@@ -211,6 +205,7 @@ void rfcomm_disconnect(connection_t *con)
 
     close(rfcomm->socket);
     free(rfcomm);
+    con->handle = NULL;
 }
 
 connection_t *rfcomm_open()
