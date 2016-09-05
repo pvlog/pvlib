@@ -1475,7 +1475,7 @@ int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t id
 static void disconnect(protocol_t *prot)
 {
     smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
-    smabluetooth_close(sma->sma);
+    smabluetooth_disconnect(sma->sma);
 }
 
 int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params)

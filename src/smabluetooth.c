@@ -367,7 +367,7 @@ int smabluetooth_connect(smabluetooth_t *sma)
 	return 0;
 }
 
-int smabluetooth_disconnect(smabluetooth_t *sma)
+void smabluetooth_disconnect(smabluetooth_t *sma)
 {
     thread_mutex_lock(&sma->mutex);
     sma->quit = true;
@@ -376,8 +376,6 @@ int smabluetooth_disconnect(smabluetooth_t *sma)
     thread_join(sma->thread);
 
     set_state(sma, STATE_NOT_CONNECTED);
-
-    return 0;
 }
 
 int smabluetooth_device_num(smabluetooth_t *sma)
@@ -413,11 +411,9 @@ smabluetooth_t *smabluetooth_init(connection_t *con)
 
 void smabluetooth_close(smabluetooth_t *sma)
 {
-	thread_mutex_lock(&sma->mutex);
-	sma->quit = true;
-	thread_mutex_unlock(&sma->mutex);
-
-	thread_join(sma->thread);
+	if (sma->state != STATE_NOT_CONNECTED) {
+		smabluetooth_disconnect(sma);
+	}
 	thread_mutex_destroy(&sma->mutex);
 	thread_cond_destroy(&sma->event);
 	thread_sem_destroy(&sma->used);
