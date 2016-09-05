@@ -103,6 +103,11 @@ int smabluetooth_read(smabluetooth_t *sma, smabluetooth_packet_t *packet);
 int smabluetooth_connect(smabluetooth_t *sma);
 
 /**
+ * Disconnect.
+ */
+void smabluetooth_disconnect(smabluetooth_t *sma);
+
+/**
  * Get number of devices in network.
  *
  * @param sma smabluetooth handle.
