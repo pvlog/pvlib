@@ -35,25 +35,25 @@
 #include "uthash.h"
 #include "resources.h"
 
-#define PROTOCOL 0x6560
-#define HEADER_SIZE 24
+static const uint16_t PROTOCOL = 0x6560;
+static const unsigned int HEADER_SIZE = 24;
 
 /* ctrl */
-#define CTRL_MASTER         (1 << 7 | 1 << 5)
-#define CTRL_NO_BROADCAST   (1 << 6)
-#define CTRL_UNKNOWN        (1 << 3)
+static const int CTRL_MASTER = 1 << 7 | 1 << 5;
+static const int  CTRL_NO_BROADCAST = 1 << 6;
+static const int CTRL_UNKNOWN = 1 << 3;
 
 /* address */
 #define ADDR_BROADCAST 0xffffffff
 static const uint8_t MAC_BROADCAST[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
-#define VOLTAGE_DIVISOR 100     //to volts
-#define CURRENT_DIVISOR 1000    // to ampere
-#define FREQUENCE_DIVISOR 100   // to herz
+static const int VOLTAGE_DIVISOR = 100;     //to volts
+static const int CURRENT_DIVISOR = 1000;    // to ampere
+static const int FREQUENCE_DIVISOR = 100;   // to herz
 //static const uint32_t smadata2plus_serial = 0x3b225946;
 static const uint32_t smadata2plus_serial = 0x3a8b74b6;
 
-static const NUM_RETRIES = 3;
+static const int NUM_RETRIES = 3;
 
 typedef enum user_type_s {
 	PASSWORD_USER,
