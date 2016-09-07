@@ -145,46 +145,44 @@ static struct tag_hash *find_tag(smadata2plus_t *sma, int num)
     return s;
 }
 
-static int read_tags(smadata2plus_t *sma, FILE *file)
-{
-    int ret;
+static int read_tags(smadata2plus_t *sma, FILE *file) {
+	int ret;
 
-    char buf[256];
-    char tag_num[256];
-    char tag[256];
-    char tag_name[256];
+	char buf[256];
+	char tag_num[256];
+	char tag[256];
+	char tag_name[256];
 
-    while (fgets(buf, sizeof(buf), file) != NULL) {
-        if (buf[0] == '#') { //remove comments
-            continue;
-        }
+	while (fgets(buf, sizeof(buf), file) != NULL ) {
+		if (buf[0] == '#') { //remove comments
+			continue;
+		}
 
-        if (sscanf(buf, "%[^'=']=%[^';'];%s", tag_num, tag, tag_name) != 3) {
-            LOG_ERROR("Invalid line %s (Ignoring it)", buf);
-            continue;
-        }
+		if (sscanf(buf, "%[^'=']=%[^';'];%s", tag_num, tag, tag_name) != 3) {
+			LOG_ERROR("Invalid line %s (Ignoring it)", buf);
+			continue;
+		}
 
-        errno = 0;
-        long num = strtol(tag_num, NULL, 10);
-        if (errno != 0) {
-            LOG_ERROR("Error parsing tag number from %s", tag_num);
-            return -1;
-        }
+		errno = 0;
+		long num = strtol(tag_num, NULL, 10);
+		if (errno != 0) {
+			LOG_ERROR("Error parsing tag number from %s", tag_num);
+			return -1;
+		}
 
-        if ((ret = add_tag(sma, num, tag, tag_name)) < 0) {
-            return ret;
-        }
-    }
+		if ((ret = add_tag(sma, num, tag, tag_name)) < 0) {
+			return ret;
+		}
+	}
 
-    if (ferror(file)) {
-        LOG_ERROR("Error reading tag file: %s", strerror(errno));
-        fclose(file);
-        return -1;
-    }
+	if (ferror(file)) {
+		LOG_ERROR("Error reading tag file: %s", strerror(errno));
+		fclose(file);
+		return -1;
+	}
 
-    fclose(file);
-    return 0;
-
+	fclose(file);
+	return 0;
 }
 
 static void reset_pkt_cnt(uint16_t *pkt_cnt)
@@ -280,50 +278,55 @@ static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet
 	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
 }
 
-static int smadata2plus_write_replay(smadata2plus_t *sma, smadata2plus_packet_t *packet, uint16_t transaction_cntr)
+static int smadata2plus_write_replay(smadata2plus_t *sma,
+		smadata2plus_packet_t *packet, uint16_t transaction_cntr)
 {
-    uint8_t buf[511 + HEADER_SIZE];
-    uint8_t size = HEADER_SIZE;
-    uint8_t mac_dst[6];
+	uint8_t buf[511 + HEADER_SIZE];
+	uint8_t size = HEADER_SIZE;
+	uint8_t mac_dst[6];
 
-    assert(packet->len + HEADER_SIZE <= sizeof(buf));
-    assert(packet->len % 4 == 0);
+	assert(packet->len + HEADER_SIZE <= sizeof(buf));
+	assert(packet->len % 4 == 0);
 
-    memset(buf, 0x00, HEADER_SIZE);
+	memset(buf, 0x00, HEADER_SIZE);
 
-    buf[0] = (packet->len + HEADER_SIZE) / 4;
-    buf[1] = packet->ctrl;
+	buf[0] = (packet->len + HEADER_SIZE) / 4;
+	buf[1] = packet->ctrl;
 
-    if (packet->dst == SMADATA2PLUS_BROADCAST) {
-        buf[2] = 0xff;
-        buf[3] = 0xff;
-        memcpy(mac_dst, MAC_BROADCAST, 6);
-    } else {
-        if (serial_to_mac(mac_dst, sma->devices, sma->device_num, packet->dst) < 0) {
-            LOG_ERROR("device: %d not in device list!", packet->dst);
-            return -1;
-        }
-        buf[2] = 0x4e;
-        buf[3] = 0x00;
-    }
-    byte_store_u32_little(&buf[4], packet->dst);
+	if (packet->dst == SMADATA2PLUS_BROADCAST) {
+		buf[2] = 0xff;
+		buf[3] = 0xff;
+		memcpy(mac_dst, MAC_BROADCAST, 6);
+	} else {
+		if (serial_to_mac(mac_dst, sma->devices, sma->device_num, packet->dst)
+				< 0) {
+			LOG_ERROR("device: %d not in device list!", packet->dst);
+			return -1;
+		}
+		buf[2] = 0x4e;
+		buf[3] = 0x00;
+	}
+	byte_store_u32_little(&buf[4], packet->dst);
 
-    buf[9] = packet->flag;
+	buf[9] = packet->flag;
 
-    buf[10] = 0x78;
-    buf[11] = 0x00;
-    byte_store_u32_little(&buf[12], smadata2plus_serial);
+	buf[10] = 0x78;
+	buf[11] = 0x00;
+	byte_store_u32_little(&buf[12], smadata2plus_serial);
 
-    if (packet->ctrl == 0xe8) buf[17] = 0;
-    else buf[17] = packet->flag;
+	if (packet->ctrl == 0xe8)
+		buf[17] = 0;
+	else
+		buf[17] = packet->flag;
 
-    if (packet->start) buf[20] = packet->packet_num;
+	if (packet->start)
+		buf[20] = packet->packet_num;
 
-    byte_store_u16_little(&buf[22], transaction_cntr);
+	byte_store_u16_little(&buf[22], transaction_cntr);
 
-    memcpy(&buf[size], packet->data, packet->len);
+	memcpy(&buf[size], packet->data, packet->len);
 
-    return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
+	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
 }
 
 static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
@@ -905,115 +908,111 @@ void smadata2plus_close(protocol_t *protocol)
  }
  */
 
-static int sync_time(smadata2plus_t *sma)
-{
-    smadata2plus_packet_t packet;
-    uint8_t buf[40];
-    int ret;
+static int sync_time(smadata2plus_t *sma) {
+	smadata2plus_packet_t packet;
+	uint8_t buf[40];
+	int ret;
 
-    packet.ctrl = CTRL_MASTER;
-    packet.dst = ADDR_BROADCAST;
-    packet.flag = 0x00;
-    packet.data = buf;
-    packet.len = 40;
-    packet.packet_num = 0;
-    packet.start = 1;
+	packet.ctrl = CTRL_MASTER;
+	packet.dst = ADDR_BROADCAST;
+	packet.flag = 0x00;
+	packet.data = buf;
+	packet.len = 40;
+	packet.packet_num = 0;
+	packet.start = 1;
 
-    byte_store_u32_little(buf,      0xf000020a);
-    byte_store_u32_little(buf + 4,  0x00236d00);
-    byte_store_u32_little(buf + 8,  0x00236d00);
-    byte_store_u32_little(buf + 12, 0x00236d00);
-    byte_store_u32_little(buf + 16, 0);
-    byte_store_u32_little(buf + 20, 0);
-    byte_store_u32_little(buf + 24, 0);
-    byte_store_u32_little(buf + 24, 0);
-    byte_store_u32_little(buf + 28, 1);
-    byte_store_u32_little(buf + 32, 1);
+	byte_store_u32_little(buf, 0xf000020a);
+	byte_store_u32_little(buf + 4, 0x00236d00);
+	byte_store_u32_little(buf + 8, 0x00236d00);
+	byte_store_u32_little(buf + 12, 0x00236d00);
+	byte_store_u32_little(buf + 16, 0);
+	byte_store_u32_little(buf + 20, 0);
+	byte_store_u32_little(buf + 24, 0);
+	byte_store_u32_little(buf + 24, 0);
+	byte_store_u32_little(buf + 28, 1);
+	byte_store_u32_little(buf + 32, 1);
 
-    if ((ret = smadata2plus_write(sma, &packet)) < 0) {
-        LOG_ERROR("Error reading inverter date!");
-        return ret;
-    }
+	if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+		LOG_ERROR("Error reading inverter date!");
+		return ret;
+	}
 
+	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+		LOG_ERROR("smadata2plus_read failed!");
+		return ret;
+	}
 
-    if ((ret = smadata2plus_read(sma, &packet)) < 0) {
-     LOG_ERROR("smadata2plus_read failed!");
-     return ret;
-    }
+	if (packet.len != 40) {
+		LOG_ERROR("Invalid packet!");
+		return -1;
+	}
 
-    if (packet.len != 40) {
-     LOG_ERROR("Invalid packet!");
-     return -1;
-    }
+	time_t last_adjusted = byte_parse_u32_little(buf + 20);
+	LOG_INFO("Time last adjusted: %s", ctime(&last_adjusted));
 
-    time_t last_adjusted = byte_parse_u32_little(buf + 20);
-    LOG_INFO("Time last adjusted: %s", ctime(&last_adjusted));
+	time_t inverter_time1 = byte_parse_u32_little(buf + 16);
+	time_t inverter_time2 = byte_parse_u32_little(buf + 24);
+	LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
+	LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
 
-    time_t inverter_time1 = byte_parse_u32_little(buf + 16);
-    time_t inverter_time2 = byte_parse_u32_little(buf + 24);
-    LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
-    LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
+	uint32_t tz_dst = byte_parse_u32_little(buf + 28);
+	int tz = tz_dst & 0xfffffe;
+	int dst = tz_dst & 0x1;
+	uint32_t unknown = byte_parse_u32_little(buf + 32);
+	uint16_t transaction_cntr = packet.transaction_cntr;
 
-    uint32_t tz_dst = byte_parse_u32_little(buf + 28);
-    int tz  = tz_dst & 0xfffffe;
-    int dst = tz_dst & 0x1;
-    uint32_t unknown = byte_parse_u32_little(buf + 32);
-    uint16_t transaction_cntr = packet.transaction_cntr;
+	memset(&packet, 0x00, sizeof(packet));
+	memset(buf, 0x00, sizeof(buf));
 
+	packet.ctrl = CTRL_MASTER | CTRL_UNKNOWN | CTRL_NO_BROADCAST;
+	packet.dst = sma->devices[0].serial;
+	packet.flag = 0x00;
+	packet.data = buf;
+	packet.len = 8;
+	packet.packet_num = 0;
+	packet.start = 0;
 
-    memset(&packet, 0x00, sizeof(packet));
-    memset(buf, 0x00, sizeof(buf));
+	byte_store_u32_little(buf, 0xf000020a);
+	byte_store_u32_little(buf + 4, 0x1);
 
-    packet.ctrl = CTRL_MASTER | CTRL_UNKNOWN | CTRL_NO_BROADCAST;
-    packet.dst  = sma->devices[0].serial;
-    packet.flag = 0x00;
-    packet.data = buf;
-    packet.len  = 8;
-    packet.packet_num   = 0;
-    packet.start = 0;
+	if ((ret = smadata2plus_write_replay(sma, &packet, transaction_cntr)) < 0) {
+		LOG_ERROR("Error writing time ack!");
+		return ret;
+	}
 
-    byte_store_u32_little(buf,     0xf000020a);
-    byte_store_u32_little(buf + 4, 0x1);
+	time_t cur_time = time(NULL);
 
-    if ((ret = smadata2plus_write_replay(sma, &packet, transaction_cntr)) < 0) {
-        LOG_ERROR("Error writing time ack!");
-        return ret;
-    }
+	if ((abs(cur_time - inverter_time1)) > 10) {
+		memset(&packet, 0x00, sizeof(packet));
+		memset(buf, 0x00, sizeof(buf));
 
-    time_t cur_time = time(NULL);
+		byte_store_u32_little(buf, 0xf000020a);
+		byte_store_u32_little(buf + 4, 0x00236d00);
+		byte_store_u32_little(buf + 8, 0x00236d00);
+		byte_store_u32_little(buf + 12, 0x00236d00);
 
-    if ((abs(cur_time - inverter_time1)) > 10) {
-        memset(&packet, 0x00, sizeof(packet));
-        memset(buf, 0x00, sizeof(buf));
+		byte_store_u32_little(buf + 16, cur_time);
+		byte_store_u32_little(buf + 20, cur_time);
+		byte_store_u32_little(buf + 24, cur_time);
+		byte_store_u32_little(buf + 28, dst | tz);
+		byte_store_u32_little(buf + 32, unknown);
+		byte_store_u32_little(buf + 36, 1);
 
-        byte_store_u32_little(buf,      0xf000020a);
-        byte_store_u32_little(buf + 4,  0x00236d00);
-        byte_store_u32_little(buf + 8,  0x00236d00);
-        byte_store_u32_little(buf + 12, 0x00236d00);
+		packet.ctrl = CTRL_MASTER;
+		packet.dst = ADDR_BROADCAST;
+		packet.flag = 0x00;
+		packet.data = buf;
+		packet.len = sizeof(buf);
+		packet.packet_num = 0;
+		packet.start = 1;
 
+		if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+			LOG_ERROR("Error setting date!");
+			return ret;
+		}
+	}
 
-        byte_store_u32_little(buf + 16, cur_time);
-        byte_store_u32_little(buf + 20, cur_time);
-        byte_store_u32_little(buf + 24, cur_time);
-        byte_store_u32_little(buf + 28, dst | tz);
-        byte_store_u32_little(buf + 32, unknown);
-        byte_store_u32_little(buf + 36, 1);
-
-        packet.ctrl = CTRL_MASTER;
-        packet.dst = ADDR_BROADCAST;
-        packet.flag = 0x00;
-        packet.data = buf;
-        packet.len = sizeof(buf);
-        packet.packet_num = 0;
-        packet.start = 1;
-
-        if ((ret = smadata2plus_write(sma, &packet)) < 0) {
-            LOG_ERROR("Error setting date!");
-            return ret;
-        }
-    }
-
-    return 0;
+	return 0;
 }
 
 int smadata2plus_connect(protocol_t *prot, const char *password, const void *param)
@@ -1361,49 +1360,51 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 
 static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 {
-    smadata2plus_t *sma;
-    smadata2plus_packet_t packet;
-    uint8_t data[512];
-    int ret;
+	smadata2plus_t *sma;
+	smadata2plus_packet_t packet;
+	uint8_t data[512];
+	int ret;
 
-    sma = (smadata2plus_t*) prot->handle;
+	sma = (smadata2plus_t*) prot->handle;
 
-    memset(&packet, 0x00, sizeof(packet));
-    packet.data = data;
-    packet.len = sizeof(data);
+	memset(&packet, 0x00, sizeof(packet));
+	packet.data = data;
+	packet.len = sizeof(data);
 
-    if ((ret = request_channel(sma, 0x5180, 0x214800, 0x2148ff)) < 0) {
-        return ret;
-    }
+	if ((ret = request_channel(sma, 0x5180, 0x214800, 0x2148ff)) < 0) {
+		return ret;
+	}
 
-    if ((ret = smadata2plus_read(sma, &packet) < 0)) {
-        return -1;
-    }
+	if ((ret = smadata2plus_read(sma, &packet) < 0)) {
+		return -1;
+	}
 
-    status->message = NULL;
-    status->number  = 0;
+	status->message = NULL;
+	status->number = 0;
 
-    time_t time = byte_parse_u32_little(&data[16]);
+	time_t time = byte_parse_u32_little(&data[16]);
 
-    for (int pos = 20; pos < 40; pos += 4) {
-        uint32_t attribute_value = byte_parse_u32_little(&data[pos]) & 0x00FFFFFF;
-        uint8_t attribute_key = data[pos + 3];
-        if (attribute_value == 0xFFFFFE) break;   //End of attributes
-        if (attribute_key == 1) {
-            status->number = attribute_value;
-            struct tag_hash *tag_hash = find_tag(sma, status->number);
+	for (int pos = 20; pos < 40; pos += 4) {
+		uint32_t attribute_value = byte_parse_u32_little(&data[pos])
+				& 0x00FFFFFF;
+		uint8_t attribute_key = data[pos + 3];
+		if (attribute_value == 0xFFFFFE)
+			break;   //End of attributes
+		if (attribute_key == 1) {
+			status->number = attribute_value;
+			struct tag_hash *tag_hash = find_tag(sma, status->number);
 
-            if (tag_hash == NULL) {
-                status->message = "Unknown status message";
-            } else {
-                status->message = tag_hash->message;
-            }
-        }
+			if (tag_hash == NULL) {
+				status->message = "Unknown status message";
+			} else {
+				status->message = tag_hash->message;
+			}
+		}
 
-        LOG_DEBUG("attr %d has value: %d", attribute_key, attribute_value);
-    }
+		LOG_DEBUG("attr %d has value: %d", attribute_key, attribute_value);
+	}
 
-    return 0;
+	return 0;
 }
 
 #if 0
@@ -1449,98 +1450,99 @@ static int smadata2plus_device_num(protocol_t *prot)
 
 static int smadata2plus_get_devices(protocol_t *prot, uint32_t* ids, int max_num)
 {
-    smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
+	smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
 
-    for (int i = 0; i < max_num && i < sma->device_num; i++) {
-        ids[i] = sma->devices[i].serial;
-    }
+	for (int i = 0; i < max_num && i < sma->device_num; i++) {
+		ids[i] = sma->devices[i].serial;
+	}
 
-    return 0;
+	return 0;
 }
 
 int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t idx1, uint32_t idx2)
 {
-    int ret;
-    smadata2plus_packet_t packet;
-    uint8_t data[512];
+	int ret;
+	smadata2plus_packet_t packet;
+	uint8_t data[512];
 
-    if ((ret = request_channel(sma, channel, idx1, idx2)) < 0) {
-        return ret;
-    }
+	if ((ret = request_channel(sma, channel, idx1, idx2)) < 0) {
+		return ret;
+	}
 
-    memset(&packet, 0x00, sizeof(packet));
-    packet.data = data;
-    packet.len = sizeof(data);
+	memset(&packet, 0x00, sizeof(packet));
+	packet.data = data;
+	packet.len = sizeof(data);
 
-    if ((ret = smadata2plus_read(sma, &packet)) < 0) {
-        return ret;
-    }
+	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+		return ret;
+	}
 
-    printf("\n\n\n");
-    for (int i = 0; i < packet.len; i++) {
-        printf("%02x ", packet.data[i]);
-        if ((i + 1) % 20 == 0) {
-            printf("\n");
-        }
-    }
-    printf("\n");
-    for (int i = 0; i < packet.len; i++) {
-        if (packet.data[i] >= 20) printf("%c  ", packet.data[i]);
-        else printf("   ");
-        if ((i + 1) % 20 == 0) {
-            printf("\n");
-        }
-    }
-    printf("\n\n\n");
+	printf("\n\n\n");
+	for (int i = 0; i < packet.len; i++) {
+		printf("%02x ", packet.data[i]);
+		if ((i + 1) % 20 == 0) {
+			printf("\n");
+		}
+	}
+	printf("\n");
+	for (int i = 0; i < packet.len; i++) {
+		if (packet.data[i] >= 20)
+			printf("%c  ", packet.data[i]);
+		else
+			printf("   ");
+		if ((i + 1) % 20 == 0) {
+			printf("\n");
+		}
+	}
+	printf("\n\n\n");
 
-    return 0;
+	return 0;
 }
 
-static void disconnect(protocol_t *prot)
-{
-    smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
-    smabluetooth_disconnect(sma->sma);
+static void disconnect(protocol_t *prot) {
+	smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
+	smabluetooth_disconnect(sma->sma);
 }
 
-int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params)
-{
+int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params) {
 	smadata2plus_t *sma;
 	int ret;
 
-
 	sma = init(con);
 
-	if (sma == NULL) return -1;
+	if (sma == NULL)
+		return -1;
 
 	FILE *tag_file = NULL;
 	size_t file_length = strlen("en_US_tags.txt");
-    char tag_path[strlen(resources_path()) + 1 + file_length + 1];
-	if (params != NULL && strlen(params) == 5) {;
-	    strcpy(tag_path, resources_path());
-	    strcat(tag_path, params);
-	    strcat(tag_path, "_tags.txt");
+	char tag_path[strlen(resources_path()) + 1 + file_length + 1];
+	if (params != NULL && strlen(params) == 5) {
+		;
+		strcpy(tag_path, resources_path());
+		strcat(tag_path, params);
+		strcat(tag_path, "_tags.txt");
 
-	     tag_file = fopen(tag_path, "r");
-	     if (tag_file == NULL) {
-	         LOG_ERROR("tag file for local %s doesn't exist.", params);
-	     }
+		tag_file = fopen(tag_path, "r");
+		if (tag_file == NULL) {
+			LOG_ERROR("tag file for local %s doesn't exist.", params);
+		}
 	}
 
-    if (tag_file == NULL) {
-        strcpy(tag_path, resources_path());
-        strcat(tag_path, "en_US_tags.txt");
-        tag_file = fopen(tag_path, "r");
-    }
+	if (tag_file == NULL) {
+		strcpy(tag_path, resources_path());
+		strcat(tag_path, "en_US_tags.txt");
+		tag_file = fopen(tag_path, "r");
+	}
 
-    if (tag_file == NULL) {
-    	LOG_ERROR("tag file  %s doesn't exist.", tag_path);
-        return -1;
-    }
+	if (tag_file == NULL) {
+		LOG_ERROR("tag file  %s doesn't exist.", tag_path);
+		return -1;
+	}
 
 	//params only contains filename to tag file
-    if ((ret = read_tags(sma, tag_file)) < 0) {
-        return ret;
-    }
+	if ((ret = read_tags(sma, tag_file)) < 0) {
+		return ret;
+	}
 
 	prot->handle = sma;
 	prot->inverter_num = smadata2plus_device_num;
