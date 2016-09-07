@@ -33,6 +33,8 @@ void thread_sem_aquire(thread_sem_t *sem);
 int thread_sem_timedaquire(thread_sem_t *sem, int ms);
 void thread_sem_destroy(thread_sem_t *sem);
 
+int thread_sleep(unsigned int mseconds);
+
 /*
  #define thread_mutex_lock(mutex) \
 	LOG_DEBUG("Lock"); \

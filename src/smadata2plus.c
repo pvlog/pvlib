@@ -53,6 +53,8 @@ static const uint8_t MAC_BROADCAST[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 //static const uint32_t smadata2plus_serial = 0x3b225946;
 static const uint32_t smadata2plus_serial = 0x3a8b74b6;
 
+static const NUM_RETRIES = 3;
+
 typedef enum user_type_s {
 	PASSWORD_USER,
 	PASSWORD_INSTALLER
@@ -879,12 +881,14 @@ static smadata2plus_t *init(connection_t *con)
 	return sma;
 }
 
-void smadata2plus_close(smadata2plus_t *sma)
+void smadata2plus_close(protocol_t *protocol)
 {
+	smadata2plus_t *sma = protocol->handle;
 	smabluetooth_close(sma->sma);
 	smanet_close(sma->smanet);
 
 	free(sma);
+	free(protocol);
 }
 /*
  int test_channel(smadata2plus_t *sma, uint8_t channel, uint8_t type, uint32_t from, uint16_t to)
@@ -1017,6 +1021,7 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	smadata2plus_t *sma;
 	int device_num;
 	int ret;
+	int cnt = 0;
 
 	sma = (smadata2plus_t*)prot->handle;
 
@@ -1028,20 +1033,45 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	device_num = smabluetooth_device_num(sma->sma);
 	LOG_INFO("%d devices!", device_num);
 
-	if ((ret = discover_devices(sma, device_num)) < 0) {
-	    LOG_ERROR("Device discover failed!");
-	    return ret;
-	}
+	do {
+		ret = ret = discover_devices(sma, device_num);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Device discover failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Device discover failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
+	cnt = 0;
 
-	if ((ret = authenticate(sma, password, PASSWORD_USER)) < 0) {
-	    LOG_ERROR("Authentication failed!");
-	    return ret;
-	}
+	do {
+		ret = ret = authenticate(sma, password, PASSWORD_USER);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Authentication  failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Authentication failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
+	cnt = 0;
 
-	if ((ret = sync_time(sma)) < 0) {
-	    LOG_ERROR("Sync time failed!");
-	    return ret;
-	}
+	do {
+		ret = sync_time(sma);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Sync time failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Sync time failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
+	cnt = 0;
+	LOG_INFO("Synchronized time!");
 
 	return 0;
 
@@ -1428,12 +1458,6 @@ static int smadata2plus_get_devices(protocol_t *prot, uint32_t* ids, int max_num
     return 0;
 }
 
-static void close(protocol_t *prot)
-{
-	smadata2plus_close(prot->handle);
-	free(prot);
-}
-
 int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t idx1, uint32_t idx2)
 {
     int ret;
@@ -1527,7 +1551,7 @@ int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params)
 	prot->get_ac = get_ac;
 	prot->get_dc = get_dc;
 	prot->get_status = get_status;
-	prot->close = close;
+	prot->close = smadata2plus_close;
 
 	return 0;
 }

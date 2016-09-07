@@ -5,6 +5,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <unistd.h>
 
 #include "thread.h"
 #include "log.h"
@@ -226,4 +227,8 @@ void thread_sem_destroy(thread_sem_t *sem)
 	if (ret != 0) {
 		LOG_ERROR("Failed destroying semaphore: %s", strerror(ret));
 	}
+}
+
+int thread_sleep(unsigned int mseconds) {
+	return usleep(1000 * mseconds);
 }
