@@ -552,6 +552,7 @@ static int read_records(smadata2plus_t *sma,
 	uint8_t data[512];
 
 	if ((ret = request_channel(sma, object, from_idx, to_idx)) < 0) {
+		LOG_ERROR("Failed requesting %04X %04X % 04X", object, from_idx, to_idx);
 		return ret;
 	}
 
@@ -564,6 +565,7 @@ static int read_records(smadata2plus_t *sma,
 	}
 
 	if ((ret = parse_channel_records(data, packet.len, records, len, type)) < 0) {
+		LOG_ERROR("Error parsing record of %04X %04X % 04X", object, from_idx, to_idx);
 		return ret;
 	}
 
@@ -1492,7 +1494,7 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 	int num_recs = 4;
 
 	do {
-		ret = read_records(sma, 0x5500, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
+		ret = read_records(sma, 0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading stats  failed!");
 			return ret;
