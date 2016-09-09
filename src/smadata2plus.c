@@ -195,7 +195,8 @@ static void parse_record_3(uint8_t *buf, record_3_t *r3)
 
 
 static int parse_channel_records(uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type) {
-	if (buf[0] != 0x1 || buf[1] != 0x20) {
+	if (buf[0] != 0x1 || buf[1] != 0x02) {
+		LOG_ERROR("Unexpected data in record header!")
 		return -1; //invalid data
 	}
 
