@@ -343,7 +343,7 @@ static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 		return -1;
 	}
 
-	LOG_TRACE_HEX("read smadata2plus packet", buf, packet->len + size);
+	LOG_TRACE_HEX("read smadata2plus packet", buf, len);
 
 	packet->ctrl = buf[1];
 	packet->dst = byte_parse_u32_little(&buf[4]);
