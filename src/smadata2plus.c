@@ -1454,38 +1454,6 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 	return parse_dc(packet.data, packet.len, dc);
 }
 
-static int parse_stats(uint8_t *data, int len, pvlib_stats_t *stats)
-{
-	int pos;
-
-    memset(stats, 0xff, sizeof(*stats));
-	for(pos=13; pos + 11 < len; pos +=16) {
-		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
-
-		switch (byte_parse_u16_little(&data[pos])) {
-		case STAT_TOTAL_YIELD:
-			LOG_INFO("TOTAL_YIELD type: %02X : %f", data[pos + 2], (float) value / 1000);
-			stats->total_yield = value;
-			break;
-		case STAT_DAY_YIELD:
-			LOG_INFO("DAY_YIELD type: %02X : %f", data[pos + 2], (float) value / 1000);
-			stats->day_yield = value;
-			break;
-		case STAT_OPERATION_TIME:
-			LOG_INFO("OPERATION_TIME type: %02X, hours : %d", data[pos + 2], value / 3600);
-			stats->operation_time = value;
-			break;
-		case STAT_FEED_IN_TIME:
-			LOG_INFO("FEED_IN_TIME type: %02X, hours : %d", data[pos + 2], value / 3600);
-			stats->feed_in_time = value;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return 0;
-}
 static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 {
 	smadata2plus_t *sma = prot->handle;;
