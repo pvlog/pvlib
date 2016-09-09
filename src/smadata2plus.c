@@ -1382,76 +1382,44 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 	return parse_ac(data, packet.len, ac);
 }
 
-static int parse_dc(uint8_t *data, int len, pvlib_dc_t *dc)
+static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 {
-	int pos;
+	smadata2plus_t *sma = prot->handle;;
+	int ret;
+	int cnt = 0;
+	record_t records[4];
+	int num_recs = 4;
 
-    memset(dc, 0xff, sizeof(*dc));
-    dc->num_lines = 0;
-
-	for (pos = 13; pos + 11 < len; pos += 28) {
-		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
-		uint32_t value_time = byte_parse_u32_little(&data[pos + 3]);
-		uint8_t tracker = data[pos - 1];
-
-		if (tracker > 2) continue; //ignore more than 3 trackers for now
-
-		if ( tracker > dc->num_lines) {
-		    dc->num_lines = tracker;
+	do {
+		ret = read_records(sma, 0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Reading dc spot data  failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Reading dc spot data failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
 		}
-		if (tracker == 0) {
-		    LOG_ERROR("Invalid tracker: %d\n", tracker);
-		    continue;
-		}
+	} while (ret < 0);
 
-		switch (byte_parse_u16_little(&data[pos])) {
+	for (int i = 0; i < num_recs; i++) {
+		record_t *r = &records[i];
+
+		int tracker = r->header.cnt;
+		switch (r->header.idx) {
 		case DC_POWER:
-			LOG_INFO("POWER_LINE_%d type: %02X : %d, time %s", tracker, data[pos + 2], value,
-			        ctime((time_t *) &value_time));
-			dc->power[tracker - 1] = value;
+			dc->power[tracker - 1] = r->record.r1.value2;
 			break;
 		case DC_VOLTAGE:
-			LOG_INFO("VOLLTAGE_LINE_%d: %02X : %f, time %s", tracker, data[pos + 2], (float) value
-			        / VOLTAGE_DIVISOR, ctime((time_t *) &value_time));
-			dc->voltage[tracker - 1] = value * 1000 / VOLTAGE_DIVISOR;
+			dc->voltage[tracker - 1] = r->record.r1.value2 * 1000 / VOLTAGE_DIVISOR;
 			break;
 		case DC_CURRENT:
-			LOG_INFO("CURRENT_LINE_%d: %02X : %f, time %s", tracker, data[pos + 2], (float) value
-			        / CURRENT_DIVISOR, ctime((time_t *) &value_time));
-			dc->current[tracker - 1] = value * 1000 / CURRENT_DIVISOR;
+			dc->current[tracker - 1] = r->record.r1.value2 * 1000 / CURRENT_DIVISOR;
 			break;
 		default:
 			break;
 		}
 	}
-
-	dc->current_power = 0;
-	for (int i = 0; i < dc->num_lines; i++) {
-	    dc->current_power += dc->power[i];
-	}
-
-	return 0;
-}
-
-static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
-{
-	smadata2plus_t *sma;
-	smadata2plus_packet_t packet;
-	uint8_t buf[512];
-
-	sma = (smadata2plus_t*) prot->handle;
-
-	if (request_channel(sma, 0x5380, 0x200000, 0x5000ff) < 0) return -1;
-
-	memset(&packet, 0x00, sizeof(packet));
-	packet.data = buf;
-	packet.len = sizeof(buf);
-
-	if (smadata2plus_read(sma, &packet) < 0) {
-		return -1;
-	}
-
-	return parse_dc(packet.data, packet.len, dc);
 }
 
 static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
