@@ -461,7 +461,6 @@ static int discover_devices(smadata2plus_t *sma, int device_num)
 	if (request_channel(sma, 0, 0, 0) < 0) {
 		return -1;
 	}
-	LOG_INFO("packet count %X", sma->pkt_cnt);
 
 	for (int i = 0; i < device_num; i++) {
 		packet.data = buf;
