@@ -118,6 +118,121 @@ struct smadata2plus_s {
 
 };
 
+typedef struct {
+	uint32_t attribute;
+	bool selected;
+} attribute_t;
+
+
+typedef struct {
+	uint8_t cnt;
+	uint32_t idx;
+	uint8_t type; // 00, 04 -> type 1 or 2, 08 -> attributes, 0x10 -> string
+	uint32_t time;
+} record_header_t;
+
+typedef struct {
+	uint32_t value1;
+	uint32_t value2;
+	uint32_t value3;
+	uint32_t value4;
+	uint32_t unknonwn;
+} record_1_t;
+
+typedef struct {
+	uint64_t value;
+} record_2_t;
+
+typedef struct {
+	char data[40];
+} record_3_t;
+
+
+typedef enum {
+	RECORD_1,
+	RECORD_2,
+	RECORD_3
+}record_type_t;
+
+typedef struct record {
+	record_header_t header;
+
+	record_type_t record_type;
+
+	union {
+		record_1_t r1;
+		record_2_t r2;
+		record_3_t r3;
+	} record;
+} record_t;
+
+
+static void parse_record_header(uint8_t* buf, record_header_t *header) {
+	header->cnt = buf[0];
+	header->idx = byte_parse_u32_little(buf + 1);
+	header->type = buf[3];
+	header->time = byte_parse_u32_little(buf + 4);
+}
+
+static void parse_record_1(uint8_t *buf, record_1_t *r1)
+{
+	r1->value1 = byte_parse_u32_little(buf);
+	r1->value2 = byte_parse_u32_little(buf + 4);
+	r1->value3 = byte_parse_u32_little(buf + 8);
+	r1->value4 = byte_parse_u32_little(buf + 12);
+	r1->unknonwn = byte_parse_u32_little(buf + 16);
+}
+
+static void parse_record_2(uint8_t *buf, record_2_t *r2)
+{
+	r2->value = byte_parse_u64_little(buf);
+}
+
+static void parse_record_3(uint8_t *buf, record_3_t *r3)
+{
+	memcpy(r3->data, buf, 40);
+}
+
+
+static int parse_channel_records(uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type) {
+	if (buf[0] != 0x1 || buf[1] != 0x20) {
+		return -1; //invalid data
+	}
+
+	uint16_t object = byte_parse_u16_little(buf + 2);
+	LOG_DEBUG("Object id %02x", object);
+
+	uint32_t unknown1 = byte_parse_u32_little(buf + 4);
+	uint32_t unknown2 = byte_parse_u32_little(buf + 8);
+	LOG_DEBUG("record data unknonwn1: %d", unknown1);
+	LOG_DEBUG("record data unknonwn2: %d", unknown2);
+
+	size_t record_length = 0;
+	switch (type) {
+		case RECORD_1 : record_length = 28; break;
+		case RECORD_2 : record_length = 16; break;
+		case RECORD_3 : record_length = 40; break;
+		default: assert(0 && "Invalid record!"); break;
+	}
+
+	int rec_idx = 0;
+	for (int i = 12; i < len && rec_idx < *max_records; i += record_length, rec_idx++) {
+		record_t *r = &records[rec_idx];
+
+		parse_record_header(buf + i, &r->header);
+		switch (type) {
+			case RECORD_1 : parse_record_1(buf + i + 8, &r->record.r1); break;
+			case RECORD_2 : parse_record_2(buf + i + 8, &r->record.r2); break;
+			case RECORD_3 : parse_record_3(buf + i + 8, &r->record.r3);; break;
+			default: assert(0 && "Invalid record!"); break;
+		}
+	}
+
+	*max_records = rec_idx;
+
+	return 0;
+}
+
 
 static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message) {
     struct tag_hash *s;
@@ -422,6 +537,37 @@ static int request_channel(smadata2plus_t *sma,
 	pkt_cnt_inc(sma);
 
 	return ret;
+}
+
+static int read_records(smadata2plus_t *sma,
+                        uint16_t object,
+                        uint32_t from_idx,
+                        uint32_t to_idx,
+                        record_t *records,
+                        int *len,
+                        record_type_t type)
+{
+	int ret = 0;
+	smadata2plus_packet_t packet;
+	uint8_t data[512];
+
+	if ((ret = request_channel(sma, object, from_idx, to_idx)) < 0) {
+		return ret;
+	}
+
+	memset(&packet, 0x00, sizeof(packet));
+	packet.data = data;
+	packet.len = sizeof(data);
+
+	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+		return ret;
+	}
+
+	if ((ret = parse_channel_records(data, packet.len, records, len, type)) < 0) {
+		return ret;
+	}
+
+	return 0;
 }
 
 static void add_device(smadata2plus_t *sma, uint32_t serial, uint8_t *mac)
@@ -1032,7 +1178,7 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	LOG_INFO("%d devices!", device_num);
 
 	do {
-		ret = ret = discover_devices(sma, device_num);
+		ret = discover_devices(sma, device_num);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Device discover failed!");
 			return ret;
@@ -1045,7 +1191,7 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	cnt = 0;
 
 	do {
-		ret = ret = authenticate(sma, password, PASSWORD_USER);
+		ret = authenticate(sma, password, PASSWORD_USER);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Authentication  failed!");
 			return ret;
@@ -1339,21 +1485,45 @@ static int parse_stats(uint8_t *data, int len, pvlib_stats_t *stats)
 }
 static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 {
-	smadata2plus_t *sma;
-	smadata2plus_packet_t packet;
-	uint8_t data[512];
+	smadata2plus_t *sma = prot->handle;;
+	int ret;
+	int cnt = 0;
+	record_t records[4];
+	int num_recs = 4;
 
-	sma = (smadata2plus_t*) prot->handle;
+	do {
+		ret = read_records(sma, 0x5500, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Reading stats  failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Reading stats failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
 
-	memset(&packet, 0x00, sizeof(packet));
-	packet.data = data;
-	packet.len = sizeof(data);
+	for (int i = 0; i < num_recs; i++) {
+		record_t *r = &records[i];
 
-	if (request_channel(sma, 0x5400, 0x200000, 0x50ffff) < 0) return -1;
+		switch (r->header.idx) {
+		case STAT_TOTAL_YIELD:
+			stats->total_yield = (uint32_t)r->record.r2.value;
+			break;
+		case STAT_DAY_YIELD:
+			stats->day_yield = (uint32_t)r->record.r2.value;;
+			break;
+		case STAT_OPERATION_TIME:
+			stats->operation_time = (uint32_t)r->record.r2.value;;
+			break;
+		case STAT_FEED_IN_TIME:
+			stats->feed_in_time = (uint32_t)r->record.r2.value;;
+			break;
+		default:
+			break;
+		}
+	}
 
-	if (smadata2plus_read(sma, &packet) < 0) return -1;
-
-	parse_stats(packet.data, packet.len, stats);
 	return 0;
 }
 
