@@ -1272,114 +1272,83 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	 */
 }
 
-static int parse_ac(uint8_t *data, int len, pvlib_ac_t *ac)
+static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 {
-	int pos = 0;
+	smadata2plus_t *sma = prot->handle;;
+	int ret;
+	int cnt = 0;
+	record_t records[4];
+	int num_recs = 4;
 
-	memset(ac, 0xff, sizeof(*ac));
+	do {
+		ret = read_records(sma, 0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Reading dc spot data  failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Reading dc spot data failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
 
-	for (pos = 13; pos + 11 < len; pos += 28) {
-		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
-		switch (byte_parse_u16_little(&data[pos])) {
+	for (int i = 0; i < num_recs; i++) {
+		record_t *r = &records[i];
+
+		uint32_t value = r->record.r1.value2;
+
+		switch(r->header.idx) {
 		case TOTAL_POWER:
-			LOG_INFO("TOTAL_POWER, type: %02X,  %d", data[pos + 2], value);
 			ac->current_power = value;
 			break;
-
 		case MAX_PHASE1:
-			LOG_INFO("MAX_PHASE_1, type: %02X : %d", data[pos + 2], value);
 			break;
 		case MAX_PHASE2:
-			LOG_INFO("MAX_PHASE_2, type: %02X : %d", data[pos + 2], value);
 			break;
 		case MAX_PHASE3:
-			LOG_INFO("MAX_PHASE_3, type: %02X : %d", data[pos + 2], value);
 			break;
-
 		case UNKNOWN_1:
-			LOG_INFO("UNKNOWN_1, type: %02X : %d", data[pos + 2], value);
+			LOG_DEBUG("UNKNOWN_1, %d", value);
 			break;
 		case UNKNWON_2:
-			LOG_INFO("UNKNOWN_2, type: %02X : %d", data[pos + 2], value);
+			LOG_DEBUG("UNKNOWN_2, %d", value);
 			break;
-
 		case POWER_PHASE1:
-			LOG_INFO("POWER PHASE 1, type: %02X : %d", data[pos + 2], value);
 			ac->power[0] = value;
 			break;
 		case POWER_PHASE2:
-			LOG_INFO("POWER PHASE 2, type: %02X : %d", data[pos + 2], value);
 			ac->power[1] = value;
 			break;
 		case POWER_PHASE3:
-			LOG_INFO("POWER PHASE 3, type: %02X : %d", data[pos + 2], value);
 			ac->power[2] = value;
 			break;
-
 		case VOLTAGE_PHASE1:
-			LOG_INFO("VOLTAGE PHASE 1, type: %02X : %f", data[pos + 2], (float) value
-			        / VOLTAGE_DIVISOR);
 			ac->voltage[0] = value * 1000 / VOLTAGE_DIVISOR;
 			break;
 		case VOLTAGE_PHASE2:
-			LOG_INFO("VOLTAGE PHASE 2, type: %02X : %f", data[pos + 2], (float) value
-			        / VOLTAGE_DIVISOR);
 			ac->voltage[1] = value * 1000 / VOLTAGE_DIVISOR;
 			break;
 		case VOLTAGE_PHASE3:
-			LOG_INFO("VOLTAGE PHASE 3, type: %02X : %f", data[pos + 2], (float) value
-			        / VOLTAGE_DIVISOR);
 			ac->voltage[2] = value * 1000 / VOLTAGE_DIVISOR;
 			break;
-
 		case CURRENT_PHASE1:
-			LOG_INFO("CURRENT PHASE 1, type: %02X : %f", data[pos + 2], (float) value
-			        / CURRENT_DIVISOR);
 			ac->current[0] = value * 1000 / CURRENT_DIVISOR;
 			break;
 		case CURRENT_PHASE2:
-			LOG_INFO("CURRENT PHASE 2, type: %02X : %f", data[pos + 2], (float) value
-			        / CURRENT_DIVISOR);
 			ac->current[1] = value * 1000 / CURRENT_DIVISOR;
 			break;
 		case CURRENT_PHASE3:
-			LOG_INFO("CURRENT PHASE 3, type: %02X : %f", data[pos + 2], (float) value
-			        / CURRENT_DIVISOR);
 			ac->current[2] = value * 1000 / CURRENT_DIVISOR;
 			break;
-
 		case FREQUENCE:
-			LOG_INFO("Frequence, type: %02X : %f", data[pos + 2], (float) value / FREQUENCE_DIVISOR);
 			ac->frequence=value * 1000 / FREQUENCE_DIVISOR;
 			break;
 		default:
 			break;
 		}
 	}
-	ac->num_lines = 1; //FIXME: support for more than one line.
 
 	return 0;
-}
-
-static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
-{
-	smadata2plus_packet_t packet;
-	uint8_t data[512];
-	smadata2plus_t *sma;
-
-	sma = (smadata2plus_t*) prot->handle;
-
-	if (request_channel(sma, 0x5100, 0x200000, 0x50ffff) < 0) return -1;
-
-	memset(&packet, 0x00, sizeof(packet));
-	packet.data = data;
-	packet.len = sizeof(data);
-
-	if (smadata2plus_read(sma, &packet) < 0) {
-		return -1;
-	}
-
-	return parse_ac(data, packet.len, ac);
 }
 
 static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
@@ -1420,6 +1389,8 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 			break;
 		}
 	}
+
+	return 0;
 }
 
 static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
