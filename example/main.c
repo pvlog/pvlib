@@ -156,10 +156,10 @@ int main(int argc, char **argv) {
             fprintf(stderr, "get stats failed!\n");
             return -1;
         }
-        printf("Manufacture: %s", inverter_info.manufacture);
-        printf("Type: %s", inverter_info.type);
-        printf("Name: %s", inverter_info.name);
-        printf("Firmware: %s", inverter_info.firmware_version);
+        printf("Manufacture: %s\n", inverter_info.manufacture);
+        printf("Type: %s\n", inverter_info.type);
+        printf("Name: %s\n", inverter_info.name);
+        printf("Firmware: %s\n", inverter_info.firmware_version);
 
         printf("status: %d %s\n",status.number, status.message);
 
