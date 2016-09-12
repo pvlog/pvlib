@@ -152,7 +152,7 @@ typedef struct {
 } record_2_t;
 
 typedef struct {
-	char data[40];
+	char data[32];
 } record_3_t;
 
 
@@ -1574,12 +1574,12 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 			if (strncmp(d, "SN: ", 4) != 0) {
 				LOG_WARNING("Unexpected device name!");
 			}
-			strncpy(inverter_info->name, d, 40);
+			strncpy(inverter_info->name, d, 32);
 			break;
 		case DEVICE_CLASS: {
 			attribute_t attributes[8];
 			int num_attributes = 8;
-			parse_attributes(d + 8, sizeof(r->record.r3.data) - 8, attributes, &num_attributes);
+			parse_attributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
 					LOG_DEBUG("Device class: %d", attributes[i].attribute);
@@ -1590,7 +1590,7 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 		case DEVICE_TYPE: {
 			attribute_t attributes[8];
 			int num_attributes = 8;
-			parse_attributes(d + 8, sizeof(r->record.r3.data) - 8, attributes, &num_attributes);
+			parse_attributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
 					LOG_DEBUG("Device type: %d", attributes[i].attribute);
