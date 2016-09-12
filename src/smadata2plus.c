@@ -1547,8 +1547,8 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[4];
-	int num_recs = 4;
+	record_t records[5];
+	int num_recs = 5;
 
 	do {
 		ret = read_records(sma, 0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
@@ -1612,6 +1612,7 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 		}
 	}
 
+	return 0;
 }
 
 #if 0
