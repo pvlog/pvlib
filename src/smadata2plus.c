@@ -179,7 +179,7 @@ static void parse_attributes(uint8_t *data, int data_len, attribute_t *attribute
 {
 	int attribute_idx = 0;
 
-	for (int idx = 0; idx < data_len && attribute_idx < *len; idx++, attribute_idx++) {
+	for (int idx = 0; idx < data_len && attribute_idx < *len; idx += 4, attribute_idx++) {
 		uint32_t attribute = byte_parse_u32_little(data + idx) & 0x00ffffff;
 		uint8_t selected = data[idx + 3];
 
