@@ -1520,7 +1520,7 @@ static int parse_firmware_version(uint8_t *data, char *version)
 {
 	//firmware version is stored from byte 16 + to 19
 
-	if (data[18] > 9 || data[19]) {
+	if (data[18] > 9 || data[19] > 9) {
 		LOG_ERROR("Invalid firmware version: 0x%02x%02x%02x%02x", data[16], data[17], data[18], data[19]);
 		return -1;
 	}
@@ -1547,8 +1547,8 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[5];
-	int num_recs = 5;
+	record_t records[10];
+	int num_recs = 10;
 
 	do {
 		ret = read_records(sma, 0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
