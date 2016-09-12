@@ -196,7 +196,7 @@ static void parse_attributes(uint8_t *data, int data_len, attribute_t *attribute
 
 static void parse_record_header(uint8_t* buf, record_header_t *header) {
 	header->cnt = buf[0];
-	header->idx = byte_parse_u32_little(buf + 1);
+	header->idx = byte_parse_u16_little(buf + 1);
 	header->type = buf[3];
 	header->time = byte_parse_u32_little(buf + 4);
 }
