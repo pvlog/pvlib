@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
     pvlib_dc_t dc;
     pvlib_stats_t stats;
     pvlib_status_t status;
+    pvlib_inverter_info_t inverter_info;
 
     int inv_num;
     uint32_t inv_handle;
@@ -150,6 +151,16 @@ int main(int argc, char **argv) {
             fprintf(stderr, "get stats failed!\n");
             return -1;
         }
+
+        if (pvlib_get_inverter_info(plant, inv_handle, &inverter_info) < 0) {
+            fprintf(stderr, "get stats failed!\n");
+            return -1;
+        }
+        printf("Manufacture: %s", inverter_info.manufacture);
+        printf("Type: %s", inverter_info.type);
+        printf("Name: %s", inverter_info.name);
+        printf("Firmware: %s", inverter_info.firmware_version);
+
         printf("status: %d %s\n",status.number, status.message);
 
         usleep(1 * 1000);

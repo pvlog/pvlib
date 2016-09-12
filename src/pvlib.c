@@ -154,6 +154,11 @@ int pvlib_get_status(pvlib_plant_t *plant, uint32_t id, pvlib_status_t *status)
     return protocol_status(plant->protocol, id, status);
 }
 
+int pvlib_get_inverter_info(pvlib_plant_t *plant, uint32_t id, pvlib_inverter_info_t *inverter_info)
+{
+	return protocol_inverter_info(plant->protocol, id, inverter_info);
+}
+
 void *pvlib_protocol_handle(pvlib_plant_t *plant)
 {
 	return plant->protocol->handle;

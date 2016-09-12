@@ -90,6 +90,14 @@ enum {
 	STAT_DAY_YIELD      = 0x2622,
 };
 
+enum {
+	DEVICE_NAME  = 0x821E,
+	DEVICE_CLASS = 0x821F,
+	DEVICE_TYPE  = 0x8220,
+	DEVICE_UNKNOWN = 0x8221,
+	DEVICE_SWVER = 0x8234,
+};
+
 typedef struct devices_s {
 	uint32_t serial;
 	uint8_t mac[6];
@@ -167,6 +175,25 @@ typedef struct record {
 } record_t;
 
 
+static void parse_attributes(uint8_t *data, int data_len, attribute_t *attributes, int *len)
+{
+	int attribute_idx = 0;
+
+	for (int idx = 0; idx < data_len && attribute_idx < *len; idx++, attribute_idx++) {
+		uint32_t attribute = byte_parse_u32_little(data + idx) & 0x00ffffff;
+		uint8_t selected = data[idx + 3];
+
+		if (attribute == 0xfffffe) {
+			break; //end of enums
+		}
+
+		attributes[attribute_idx].attribute = attribute;
+		attributes[attribute_idx].selected  = selected;
+	}
+
+	*len = attribute_idx;
+}
+
 static void parse_record_header(uint8_t* buf, record_header_t *header) {
 	header->cnt = buf[0];
 	header->idx = byte_parse_u32_little(buf + 1);
@@ -194,7 +221,8 @@ static void parse_record_3(uint8_t *buf, record_3_t *r3)
 }
 
 
-static int parse_channel_records(uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type) {
+static int parse_channel_records(uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type)
+{
 	if (buf[0] != 0x1 || buf[1] != 0x02) {
 		LOG_ERROR("Unexpected data in record header!");
 		return -1; //invalid data
@@ -235,7 +263,8 @@ static int parse_channel_records(uint8_t *buf, int len, record_t *records, int *
 }
 
 
-static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message) {
+static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message)
+{
     struct tag_hash *s;
     s = malloc(sizeof(*s));
     if (s == NULL) {
@@ -1486,6 +1515,105 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 	return 0;
 }
 
+//version needs to be 10 at least 10 bytes
+static int parse_firmware_version(uint8_t *data, char *version)
+{
+	//firmware version is stored from byte 16 + to 19
+
+	if (data[18] > 9 || data[19]) {
+		LOG_ERROR("Invalid firmware version: 0x%02x%02x%02x%02x", data[16], data[17], data[18], data[19]);
+		return -1;
+	}
+
+	char release_type[3] = {0};
+
+	switch (data[16]) {
+		case 0:release_type[0] = 'N'; break;
+		case 1:release_type[0] = 'E'; break;
+		case 2:release_type[0] = 'A'; break;
+		case 3:release_type[0] = 'B'; break;
+		case 4:release_type[0] = 'R'; break;
+		case 5:release_type[0] = 'S'; break;
+		default: snprintf(release_type, 3, "%02d", data[16]); break;
+	}
+
+	sprintf(version, "%d.%02d.%02d.%s", data[19], data[18], data[17], release_type);
+
+	return 0;
+}
+
+static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_t *inverter_info)
+{
+	smadata2plus_t *sma = prot->handle;;
+	int ret;
+	int cnt = 0;
+	record_t records[4];
+	int num_recs = 4;
+
+	do {
+		ret = read_records(sma, 0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Reading inverter info  failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Reading inverter info failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
+
+	memset(inverter_info, 0, sizeof(*inverter_info));
+	strcpy(inverter_info->manufacture, "SMA");
+
+	for (int i = 0; i < num_recs; i++) {
+		record_t *r = &records[i];
+		uint8_t * d = r->record.r3.data;
+
+		switch (r->header.idx) {
+		case DEVICE_NAME:
+			if (strncmp(d, "SN: ", 4) != 0) {
+				LOG_WARNING("Unexpected device name!");
+			}
+			strncpy(inverter_info->name, d, 40);
+			break;
+		case DEVICE_CLASS: {
+			attribute_t attributes[8];
+			int num_attributes = 8;
+			parse_attributes(d + 8, sizeof(r->record.r3.data) - 8, attributes, &num_attributes);
+			for (int i = 0; i < num_attributes; i++) {
+				if (attributes[i].selected) {
+					LOG_DEBUG("Device class: %d", attributes[i].attribute);
+				}
+			}
+			break;
+		}
+		case DEVICE_TYPE: {
+			attribute_t attributes[8];
+			int num_attributes = 8;
+			parse_attributes(d + 8, sizeof(r->record.r3.data) - 8, attributes, &num_attributes);
+			for (int i = 0; i < num_attributes; i++) {
+				if (attributes[i].selected) {
+					LOG_DEBUG("Device type: %d", attributes[i].attribute);
+					snprintf(inverter_info->type, sizeof(inverter_info->type), "%d", attributes[i].attribute);
+
+				}
+			}
+			break;
+		}
+		case DEVICE_UNKNOWN:
+			break;
+		case DEVICE_SWVER:
+			if (parse_firmware_version(d, inverter_info->firmware_version) < 0) {
+				LOG_WARNING("Invalid firmware format. Ignoring it!");
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+}
+
 #if 0
 int smadata2plus_test(smadata2plus_t *sma)
 {
@@ -1633,6 +1761,7 @@ int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params) {
 	prot->get_dc = get_dc;
 	prot->get_status = get_status;
 	prot->close = smadata2plus_close;
+	prot->get_inverter_info = get_inverter_info;
 
 	return 0;
 }

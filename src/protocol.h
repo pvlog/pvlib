@@ -46,6 +46,7 @@ struct protocol_s {
 	int (*get_ac)(protocol_t *, uint32_t id, pvlib_ac_t *);
 	int (*get_stats)(protocol_t *, uint32_t id, pvlib_stats_t *);
 	int (*get_status)(protocol_t *, uint32_t id, pvlib_status_t *);
+	int (*get_inverter_info)(protocol_t *, uint32_t id, pvlib_inverter_info_t *);
 };
 
 int protocol_num(void);
@@ -75,6 +76,8 @@ int protocol_ac(protocol_t *protocol, uint32_t id, pvlib_ac_t *dc);
 int protocol_stats(protocol_t *protocol, uint32_t id, pvlib_stats_t *stats);
 
 int protocol_status(protocol_t *protocol, uint32_t id, pvlib_status_t *status);
+
+int protocol_inverter_info(protocol_t *protocol, uint32_t id, pvlib_inverter_info_t *inverter_info);
 
 void protocol_close(protocol_t *protocol);
 

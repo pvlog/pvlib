@@ -140,3 +140,8 @@ int protocol_status(protocol_t *protocol, uint32_t id, pvlib_status_t *status)
 {
     return protocol->get_status(protocol, id, status);
 }
+
+int protocol_inverter_info(protocol_t *protocol, uint32_t id, pvlib_inverter_info_t *inverter_info)
+{
+	return protocol->get_inverter_info(protocol, id, inverter_info);
+}

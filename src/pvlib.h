@@ -77,6 +77,13 @@ typedef struct pvlib_status_s {
     char *message;
 } pvlib_status_t;
 
+typedef struct pvlib_inverter_info_s {
+	char manufacture[64];
+	char type[64];
+	char name[64];
+	char firmware_version[64];
+} pvlib_inverter_info_t;
+
 /**
  * Initialize pvlib.
  *
@@ -240,6 +247,16 @@ int pvlib_get_stats(pvlib_plant_t *plant, uint32_t id, pvlib_stats_t *stats);
  * @return negative on failure 0 on success and good status and positive on success and bad status.
  */
 int pvlib_get_status(pvlib_plant_t *plant, uint32_t id, pvlib_status_t *status);
+
+/**
+ * Get inverter informations
+ *
+ * @param plant plant handle
+ * @param id inverter id
+ * @param[out] inveter_info inverter information
+ * @return negative on failue 0 on success.
+ */
+int pvlib_get_inverter_info(pvlib_plant_t *plant, uint32_t id, pvlib_inverter_info_t *inverter_info);
 
 /**
  * Returns protocol handle.
