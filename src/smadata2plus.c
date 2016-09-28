@@ -24,6 +24,7 @@
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "smadata2plus.h"
 #include "smabluetooth.h"
@@ -1416,7 +1417,7 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 
 		uint64_t value = r->record.r2.value;
 
-		LOG_DEBUG("Read stats: idx %x value: %d", r->header.idx, value);
+		LOG_DEBUG("Read stats: idx %x value: %"PRIu64, r->header.idx, value);
 
 		switch (r->header.idx) {
 		case STAT_TOTAL_YIELD:
