@@ -375,54 +375,6 @@ static int connect_bluetooth(smadata2plus_t *sma)
 	return 0;
 }
 
-static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet)
-{
-	uint8_t buf[511 + HEADER_SIZE];
-	uint8_t size = HEADER_SIZE;
-	uint8_t mac_dst[6];
-
-	assert(packet->len + HEADER_SIZE <= sizeof(buf));
-	assert(packet->len % 4 == 0);
-
-	memset(buf, 0x00, HEADER_SIZE);
-
-	buf[0] = (packet->len + HEADER_SIZE) / 4;
-	buf[1] = packet->ctrl;
-
-	if (packet->dst == SMADATA2PLUS_BROADCAST) {
-		buf[2] = 0xff;
-		buf[3] = 0xff;
-		memcpy(mac_dst, MAC_BROADCAST, 6);
-	} else {
-		if (serial_to_mac(mac_dst, sma->devices, sma->device_num, packet->dst) < 0) {
-			LOG_ERROR("device: %d not in device list!", packet->dst);
-			return -1;
-		}
-		buf[2] = 0x4e;
-		buf[3] = 0x00;
-	}
-	byte_store_u32_little(&buf[4], packet->dst);
-
-	buf[9] = packet->flag;
-
-	buf[10] = 0x78;
-	buf[11] = 0x00;
-	byte_store_u32_little(&buf[12], smadata2plus_serial);
-
-	if (packet->ctrl == 0xe8) buf[17] = 0;
-	else buf[17] = packet->flag;
-
-	if (packet->start) buf[20] = packet->packet_num;
-
-	byte_store_u16_little(&buf[22], sma->pkt_cnt);
-
-	memcpy(&buf[size], packet->data, packet->len);
-
-	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
-
-	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
-}
-
 static int smadata2plus_write_replay(smadata2plus_t *sma,
 		smadata2plus_packet_t *packet, uint16_t transaction_cntr)
 {
@@ -471,8 +423,16 @@ static int smadata2plus_write_replay(smadata2plus_t *sma,
 
 	memcpy(&buf[size], packet->data, packet->len);
 
+	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
+
 	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
 }
+
+static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet)
+{
+	return smadata2plus_write_replay(sma, packet, sma->pkt_cnt);
+}
+
 
 static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 {
