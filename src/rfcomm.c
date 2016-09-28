@@ -62,12 +62,6 @@ struct rfcomm_handle {
 	char dst_name[128];
 };
 
-static void rfcomm_close(connection_t *con)
-{
-	rfcomm_disconnect(con);
-	free(con);
-}
-
 static int rfcomm_write(connection_t *con, const uint8_t *data, int len)
 {
 	return send(((struct rfcomm_handle*) con->handle)->socket, data, len, 0);
@@ -198,22 +192,29 @@ static int rfcomm_connect(connection_t *con, const char *address, const void *pa
 	return -1;
 }
 
-void rfcomm_disconnect(connection_t *con)
-{
-    struct rfcomm_handle *rfcomm = con->handle;
-    if (rfcomm == NULL) return;
+void rfcomm_disconnect(connection_t *con) {
+	struct rfcomm_handle *rfcomm = con->handle;
+	if (rfcomm == NULL)
+		return;
 
-    close(rfcomm->socket);
-    free(rfcomm);
-    con->handle = NULL;
+	close(rfcomm->socket);
+	free(rfcomm);
+	con->handle = NULL;
 }
+
+static void rfcomm_close(connection_t *con)
+{
+	rfcomm_disconnect(con);
+	free(con);
+}
+
 
 connection_t *rfcomm_open()
 {
-    connection_t *con = malloc(sizeof(*con));
-    if (con == NULL) {
-        return NULL;
-    }
+	connection_t *con = malloc(sizeof(*con));
+	if (con == NULL) {
+		return NULL ;
+	}
 
 	con->handle = NULL;
 	con->write = rfcomm_write;
