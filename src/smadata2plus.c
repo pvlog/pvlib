@@ -98,6 +98,10 @@ enum {
 	DEVICE_SWVER = 0x8234,
 };
 
+enum {
+	DEVICE_STATUS = 0x2148
+};
+
 typedef struct devices_s {
 	uint32_t serial;
 	uint8_t mac[6];
@@ -1436,48 +1440,55 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 
 static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 {
-	smadata2plus_t *sma;
-	smadata2plus_packet_t packet;
-	uint8_t data[512];
+	smadata2plus_t *sma = prot->handle;
 	int ret;
+	int cnt = 0;
+	record_t records[1];
+	int num_recs = 1;
 
-	sma = (smadata2plus_t*) prot->handle;
+	do {
+		ret = read_records(sma, 0x5800, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG_ERROR("Reading inverter info  failed!");
+			return ret;
+		} else if (ret < 0){
+			LOG_WARNING("Reading inverter info failed! Retrying ...");
+			cnt++;
+			thread_sleep(1000 * cnt);
+		}
+	} while (ret < 0);
 
-	memset(&packet, 0x00, sizeof(packet));
-	packet.data = data;
-	packet.len = sizeof(data);
-
-	if ((ret = request_channel(sma, 0x5180, 0x214800, 0x2148ff)) < 0) {
-		return ret;
-	}
-
-	if ((ret = smadata2plus_read(sma, &packet) < 0)) {
-		return -1;
-	}
-
-	status->message = NULL;
 	status->number = 0;
+	status->status = PVLIB_STATUS_UNKNOWN;
 
-	time_t time = byte_parse_u32_little(&data[16]);
+	for (int i = 0; i < num_recs; i++) {
+		record_t *r = &records[i];
+		uint8_t * d = r->record.r3.data;
 
-	for (int pos = 20; pos < 40; pos += 4) {
-		uint32_t attribute_value = byte_parse_u32_little(&data[pos])
-				& 0x00FFFFFF;
-		uint8_t attribute_key = data[pos + 3];
-		if (attribute_value == 0xFFFFFE)
-			break;   //End of attributes
-		if (attribute_key == 1) {
-			status->number = attribute_value;
-			struct tag_hash *tag_hash = find_tag(sma, status->number);
-
-			if (tag_hash == NULL) {
-				status->message = "Unknown status message";
-			} else {
-				status->message = tag_hash->message;
+		switch(r->header.idx) {
+		case DEVICE_STATUS: {
+			attribute_t attributes[8];
+			int num_attributes = 8;
+			parse_attributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
+			for (int i = 0; i < num_attributes; i++) {
+				if (attributes[i].selected) {
+					status->number = attributes[i].attribute;
+					switch (status->number) {
+					case 307: status->status = PVLIB_STATUS_OK; break;
+					case 35: status->status = PVLIB_STATUS_ERROR; break;
+					case 303: status->status = PVLIB_STATUS_OFF; break;
+					case 455: status->status = PVLIB_STATUS_WARNING; break;
+					default: status->status = PVLIB_STATUS_UNKNOWN; break;
+					}
+				}
 			}
+			break;
+		}
+		default:
+			LOG_ERROR("Unexpected idx: %x", r->header.idx);
+			break;
 		}
 
-		LOG_DEBUG("attr %d has value: %d", attribute_key, attribute_value);
 	}
 
 	return 0;

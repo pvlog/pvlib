@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
         printf("Name: %s\n", inverter_info.name);
         printf("Firmware: %s\n", inverter_info.firmware_version);
 
-        printf("status: %d %s\n",status.number, status.message);
+        printf("status: %d %d\n",status.status, status.number);
 
         usleep(1 * 1000);
     }

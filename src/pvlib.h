@@ -72,9 +72,18 @@ typedef struct pvlib_stats_s {
 	uint32_t feed_in_time; ///<feed in time in seconds
 } pvlib_stats_t;
 
+
+typedef enum {
+	PVLIB_STATUS_OK,
+	PVLIB_STATUS_WARNING,
+	PVLIB_STATUS_ERROR,
+	PVLIB_STATUS_OFF,
+	PVLIB_STATUS_UNKNOWN
+}pvlib_status_value_t;
+
 typedef struct pvlib_status_s {
-    uint32_t number;
-    char *message;
+	pvlib_status_value_t status;
+	uint32_t number;
 } pvlib_status_t;
 
 typedef struct pvlib_inverter_info_s {
