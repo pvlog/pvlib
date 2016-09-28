@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
 
         printf("status: %d %d\n",status.status, status.number);
 
-        usleep(1 * 1000);
+        sleep(1);
     }
 
     sma = pvlib_protocol_handle(plant);

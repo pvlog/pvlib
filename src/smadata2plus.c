@@ -180,7 +180,7 @@ typedef struct record {
 } record_t;
 
 
-static void parse_attributes(uint8_t *data, int data_len, attribute_t *attributes, int *len)
+static void parse_attributes(const uint8_t *data, int data_len, attribute_t *attributes, int *len)
 {
 	int attribute_idx = 0;
 
@@ -199,14 +199,14 @@ static void parse_attributes(uint8_t *data, int data_len, attribute_t *attribute
 	*len = attribute_idx;
 }
 
-static void parse_record_header(uint8_t* buf, record_header_t *header) {
+static void parse_record_header(const uint8_t* buf, record_header_t *header) {
 	header->cnt = buf[0];
 	header->idx = byte_parse_u16_little(buf + 1);
 	header->type = buf[3];
 	header->time = byte_parse_u32_little(buf + 4);
 }
 
-static void parse_record_1(uint8_t *buf, record_1_t *r1)
+static void parse_record_1(const uint8_t *buf, record_1_t *r1)
 {
 	r1->value1 = byte_parse_u32_little(buf);
 	r1->value2 = byte_parse_u32_little(buf + 4);
@@ -215,18 +215,18 @@ static void parse_record_1(uint8_t *buf, record_1_t *r1)
 	r1->unknonwn = byte_parse_u32_little(buf + 16);
 }
 
-static void parse_record_2(uint8_t *buf, record_2_t *r2)
+static void parse_record_2(const uint8_t *buf, record_2_t *r2)
 {
 	r2->value = byte_parse_u64_little(buf);
 }
 
-static void parse_record_3(uint8_t *buf, record_3_t *r3)
+static void parse_record_3(const uint8_t *buf, record_3_t *r3)
 {
 	memcpy(r3->data, buf, 40);
 }
 
 
-static int parse_channel_records(uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type)
+static int parse_channel_records(const uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type)
 {
 	if (buf[0] != 0x1 || buf[1] != 0x02) {
 		LOG_ERROR("Unexpected data in record header!");
@@ -1416,7 +1416,7 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 
 		uint64_t value = r->record.r2.value;
 
-		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
+		LOG_DEBUG("Read stats: idx %x value: %d", r->header.idx, value);
 
 		switch (r->header.idx) {
 		case STAT_TOTAL_YIELD:
