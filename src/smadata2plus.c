@@ -34,6 +34,7 @@
 #include "protocol.h"
 #include "uthash.h"
 #include "resources.h"
+#include "thread.h"
 
 static const uint16_t PROTOCOL = 0x6560;
 static const unsigned int HEADER_SIZE = 24;
@@ -156,7 +157,7 @@ typedef struct {
 } record_2_t;
 
 typedef struct {
-	char data[32];
+	uint8_t data[32];
 } record_3_t;
 
 
@@ -1463,7 +1464,7 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
-		uint8_t * d = r->record.r3.data;
+		uint8_t *d = r->record.r3.data;
 
 		switch(r->header.idx) {
 		case DEVICE_STATUS: {
@@ -1550,10 +1551,10 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 
 		switch (r->header.idx) {
 		case DEVICE_NAME:
-			if (strncmp(d, "SN: ", 4) != 0) {
+			if (strncmp((char*)d, "SN: ", 4) != 0) {
 				LOG_WARNING("Unexpected device name!");
 			}
-			strncpy(inverter_info->name, d, 32);
+			strncpy(inverter_info->name, (const char*)d, 32);
 			break;
 		case DEVICE_CLASS: {
 			attribute_t attributes[8];
