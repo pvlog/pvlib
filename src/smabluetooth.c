@@ -311,14 +311,16 @@ static void *worker_thread(void *arg)
 			if (connection_read(sma->con, sma->packet.data, sma->packet.len, TIMEOUT) < 0) {
 				goto error;
 			}
+
+			LOG_TRACE_HEX("received smabluetooth packet:", packet.data, packet.len);
+
 			thread_sem_release(&sma->used);
 		} else {
 			if (connection_read(sma->con, packet.data, packet.len, TIMEOUT) < 0) {
 				goto error;
 			}
 
-			LOG_TRACE_HEX("received smabluetooth packet", packet.data, packet.len);
-
+			LOG_TRACE_HEX("received smabluetooth packet:", packet.data, packet.len);
 
 			if (for_us) {
 				if (packet_event(sma, &packet) < 0) {
