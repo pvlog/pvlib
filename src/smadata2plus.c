@@ -1272,8 +1272,8 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[4];
-	int num_recs = 4;
+	record_t records[20];
+	int num_recs = 20;
 
 	do {
 		ret = read_records(sma, 0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
@@ -1352,8 +1352,8 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[4];
-	int num_recs = 4;
+	record_t records[9];
+	int num_recs = 9;
 
 	do {
 		ret = read_records(sma, 0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
@@ -1374,6 +1374,11 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
 
 		int tracker = r->header.cnt;
+		if (tracker < 1) {
+			LOG_ERROR("Invalid tracker number: %d", tracker);
+			continue;
+		}
+
 		switch (r->header.idx) {
 		case DC_POWER:
 			dc->power[tracker - 1] = value;
