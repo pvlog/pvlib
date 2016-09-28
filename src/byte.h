@@ -80,7 +80,8 @@
 #   define BYTE_UNKNOWN_ORDER
 #endif
 
-#if (defined BYTE_UNKNOWN_ORDER || ((!defined __i386__) && (!defined _M_IX86) && (!defined _X86_) && (!defined __X86__)))
+#if (defined BYTE_UNKNOWN_ORDER || ((!defined __i386__) && (!defined _M_IX86) && (!defined _X86_) \
+		&& (!defined __X86__) && (!__x86_64)))
 #   define BYTE_NO_CAST
 #endif
 
@@ -90,7 +91,7 @@
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint16_t byte_parse_u16_little(uint8_t *data)
+static inline uint16_t byte_parse_u16_little(const uint8_t *data)
 {
 	return (uint16_t) data[1] << 8 | (uint16_t) data[0];
 }
@@ -101,7 +102,7 @@ static inline uint16_t byte_parse_u16_little(uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint16_t byte_parse_u16_big(uint8_t *data)
+static inline uint16_t byte_parse_u16_big(const uint8_t *data)
 {
 	return (uint16_t) data[0] << 8 | (uint16_t) data[1];
 }
@@ -112,7 +113,7 @@ static inline uint16_t byte_parse_u16_big(uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint32_t byte_parse_u32_little(uint8_t *data)
+static inline uint32_t byte_parse_u32_little(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint32_t) data[3] << 24) | ((uint32_t) data[2] << 16) | ((uint32_t) data[1] << 8)
@@ -130,7 +131,7 @@ static inline uint32_t byte_parse_u32_little(uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint32_t byte_parse_u32_big(uint8_t *data)
+static inline uint32_t byte_parse_u32_big(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint32_t) data[0] << 24) | ((uint32_t) data[1] << 16) | ((uint32_t) data[2] << 8)
@@ -148,7 +149,7 @@ static inline uint32_t byte_parse_u32_big(uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint64_t byte_parse_u64_little(uint8_t *data)
+static inline uint64_t byte_parse_u64_little(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint64_t) data[7] << 56) | ((uint64_t) data[6] << 48) | ((uint64_t) data[5] << 40)
@@ -167,7 +168,7 @@ static inline uint64_t byte_parse_u64_little(uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint64_t byte_parse_u64_big(uint8_t *data)
+static inline uint64_t byte_parse_u64_big(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint64_t) data[0] << 56) | ((uint64_t) data[1] << 48) | ((uint64_t) data[2] << 40)
