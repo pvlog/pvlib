@@ -1325,6 +1325,7 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 		record_t *r = &records[i];
 
 		uint32_t value = r->record.r1.value2;
+		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
 
 		switch(r->header.idx) {
 		case TOTAL_POWER:
@@ -1402,17 +1403,20 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
+		uint32_t value = r->record.r1.value2;
+
+		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
 
 		int tracker = r->header.cnt;
 		switch (r->header.idx) {
 		case DC_POWER:
-			dc->power[tracker - 1] = r->record.r1.value2;
+			dc->power[tracker - 1] = value;
 			break;
 		case DC_VOLTAGE:
-			dc->voltage[tracker - 1] = r->record.r1.value2 * 1000 / VOLTAGE_DIVISOR;
+			dc->voltage[tracker - 1] = value * 1000 / VOLTAGE_DIVISOR;
 			break;
 		case DC_CURRENT:
-			dc->current[tracker - 1] = r->record.r1.value2 * 1000 / CURRENT_DIVISOR;
+			dc->current[tracker - 1] = value * 1000 / CURRENT_DIVISOR;
 			break;
 		default:
 			break;
@@ -1445,18 +1449,22 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
 
+		uint64_t value = r->record.r2.value;
+
+		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
+
 		switch (r->header.idx) {
 		case STAT_TOTAL_YIELD:
-			stats->total_yield = (uint32_t)r->record.r2.value;
+			stats->total_yield = (uint32_t)value;
 			break;
 		case STAT_DAY_YIELD:
-			stats->day_yield = (uint32_t)r->record.r2.value;;
+			stats->day_yield = (uint32_t)value;
 			break;
 		case STAT_OPERATION_TIME:
-			stats->operation_time = (uint32_t)r->record.r2.value;;
+			stats->operation_time = (uint32_t)value;
 			break;
 		case STAT_FEED_IN_TIME:
-			stats->feed_in_time = (uint32_t)r->record.r2.value;;
+			stats->feed_in_time = (uint32_t)value;
 			break;
 		default:
 			break;
