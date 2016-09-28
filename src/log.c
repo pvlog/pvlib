@@ -27,7 +27,6 @@
 
 static int log_severity = 0;
 static FILE *fd;
-static thread_mutex_t mutex = THREAD_MUTEX_INITIALIZER;
 
 void log_enable(FILE *file, int severity)
 {
@@ -53,33 +52,29 @@ static const char *filename(const char *file)
 	return file;
 }
 
-void log_hex(log_severity_t severity,
-             const char *file,
-             int line,
-             const char *message,
-             uint8_t *data,
-             int len)
+void log_hex(log_severity_t severity, const char *file, int line, const char *message,
+		uint8_t *data, int len)
 {
-    //thread_mutex_lock(&mutex);
-    if (log_severity & severity) {
-        int i = 0;
+	if (log_severity & severity) {
+		int i = 0;
 
-        fprintf(fd, "------------------------------------------------------------------------------\n");
-        fprintf(fd, "%s, %d %s\n", filename(file), line, message);
-        for (i = 0; i < len; i++) {
-            fprintf(fd, "%02X ", data[i]);
-            if (!((i + 1) % 16) || i + 1 == len) fprintf(fd, "\n");
-        }
-        fprintf(fd, "------------------------------------------------------------------------------\n");
+		fprintf(fd,
+				"------------------------------------------------------------------------------\n");
+		fprintf(fd, "%s, %d %s\n", filename(file), line, message);
+		for (i = 0; i < len; i++) {
+			fprintf(fd, "%02X ", data[i]);
+			if (!((i + 1) % 16) || i + 1 == len)
+				fprintf(fd, "\n");
+		}
+		fprintf(fd,
+				"------------------------------------------------------------------------------\n");
 
-        fprintf(fd, "\n");
-    }
-    //thread_mutex_unlock(&mutex);
+		fprintf(fd, "\n");
+	}
 }
 
 void log_log(log_severity_t severity, const char *file, int line, const char *format, ...)
 {
-	//thread_mutex_lock(&mutex);
 	if (log_severity & severity) {
 		va_list args;
 
@@ -102,5 +97,4 @@ void log_log(log_severity_t severity, const char *file, int line, const char *fo
 
 		fprintf(stderr, "\033[0m\n");
 	}
-	//thread_mutex_unlock(&mutex);
 }
