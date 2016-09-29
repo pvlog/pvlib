@@ -1287,6 +1287,7 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 		}
 	} while (ret < 0);
 
+	ac->num_lines = 3;
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
 
@@ -1367,6 +1368,8 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 		}
 	} while (ret < 0);
 
+	dc->num_lines = 0;
+
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
 		uint32_t value = r->record.r1.value2;
@@ -1377,6 +1380,10 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 		if (tracker < 1) {
 			LOG_ERROR("Invalid tracker number: %d", tracker);
 			continue;
+		}
+
+		if (tracker > dc->num_lines) {
+			dc->num_lines = tracker;
 		}
 
 		switch (r->header.idx) {
