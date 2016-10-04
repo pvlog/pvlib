@@ -228,8 +228,17 @@ static void parse_record_3(const uint8_t *buf, record_3_t *r3)
 }
 
 
-static int parse_channel_records(const uint8_t *buf, int len, record_t *records, int *max_records, record_type_t type)
+static int parse_channel_records(const uint8_t *buf,
+                                 int len, record_t *records,
+                                 int *max_records,
+                                 record_type_t type,
+                                 int16_t requested_object)
 {
+	if (len < 8) {
+		LOG_ERROR("Invalid record length %d", len);
+		return -1; //invalid length
+	}
+
 	if (buf[0] != 0x1 || buf[1] != 0x02) {
 		LOG_ERROR("Unexpected data in record header!");
 		return -1; //invalid data
@@ -237,6 +246,10 @@ static int parse_channel_records(const uint8_t *buf, int len, record_t *records,
 
 	uint16_t object = byte_parse_u16_little(buf + 2);
 	LOG_DEBUG("Object id %02x", object);
+	if (object != requested_object) {
+		LOG_ERROR("Invalid object requested %d got %d", object, requested_object);
+		return -1;
+	}
 
 	uint32_t unknown1 = byte_parse_u32_little(buf + 4);
 	uint32_t unknown2 = byte_parse_u32_little(buf + 8);
@@ -561,7 +574,7 @@ static int read_records(smadata2plus_t *sma,
 		return ret;
 	}
 
-	if ((ret = parse_channel_records(data, packet.len, records, len, type)) < 0) {
+	if ((ret = parse_channel_records(data, packet.len, records, len, type, object)) < 0) {
 		LOG_ERROR("Error parsing record of %04X %04X % 04X", object, from_idx, to_idx);
 		return ret;
 	}
