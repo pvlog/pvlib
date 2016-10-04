@@ -23,10 +23,19 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #if defined __cplusplus
 extern "C" {
 #endif
+
+static const int64_t PVLIB_INVALID_S64 = INT64_MIN;
+static const int32_t PVLIB_INVALID_S32 = INT32_MIN;
+static const int16_t PVLIB_INVALID_S16 = INT16_MIN;
+
+static const uint64_t PVLIB_INVALID_U64 = UINT64_MAX;
+static const uint32_t PVLIB_INVALID_U32 = UINT32_MAX;
+static const uint16_t PVLIB_INVALID_U16 = UINT16_MAX;
 
 typedef struct pvlib_plant_s pvlib_plant_t;
 
@@ -43,35 +52,40 @@ typedef enum {
 } pvlib_protocol_t;
 
 typedef struct pvlib_ac_s {
-	uint32_t current_power; ///< current power of string inverter in watts
+	int32_t current_power; ///< current power of string inverter in watts
 
-	uint32_t power[3]; ///< current power of phase in watss
-	uint32_t voltage[3]; ///< current voltage in millivolts
-	uint32_t current[3]; ///< current current in milliampere
+	int32_t power[3]; ///< current power of phase in watss
+	int32_t voltage[3]; ///< current voltage in millivolts
+	int32_t current[3]; ///< current current in milliampere
 
-	uint8_t num_lines; ///< number of output phases
+	uint8_t num_phases; ///< number of output phases
 
-	uint32_t frequence; ///< frequence in milliherz
+	int32_t frequency; ///< frequence in milliherz
 } pvlib_ac_t;
 
-typedef struct pvlib_dc_s {
-	uint32_t current_power; ///<current power in watts
+void pvlib_init_ac(pvlib_ac_t *ac);
 
-	uint32_t power[3]; ///<current power in watts
-	uint32_t voltage[3]; ///<current voltage in millivolts
-	uint32_t current[3]; ///<current current in milliampere
+typedef struct pvlib_dc_s {
+	int32_t current_power; ///<current power in watts
+
+	int32_t power[3]; ///<current power in watts
+	int32_t voltage[3]; ///<current voltage in millivolts
+	int32_t current[3]; ///<current current in milliampere
 
 	uint8_t num_lines; ///<number of input strings
 } pvlib_dc_t;
 
-typedef struct pvlib_stats_s {
-	uint32_t total_yield; ///<total produced power in  watt-hours
-	uint32_t day_yield; ///<total produced power today in  watt-hours
+void pvlib_init_dc(pvlib_dc_t *dc);
 
-	uint32_t operation_time; /// <operation time in seconds
-	uint32_t feed_in_time; ///<feed in time in seconds
+typedef struct pvlib_stats_s {
+	int64_t total_yield; ///<total produced power in  watt-hours
+	int64_t day_yield; ///<total produced power today in  watt-hours
+
+	int64_t operation_time; /// <operation time in seconds
+	int64_t feed_in_time; ///<feed in time in seconds
 } pvlib_stats_t;
 
+void pvlib_init_stats(pvlib_stats_t *stats);
 
 typedef enum {
 	PVLIB_STATUS_OK,

@@ -51,11 +51,12 @@ static const uint8_t MAC_BROADCAST[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 static const int VOLTAGE_DIVISOR = 100;     //to volts
 static const int CURRENT_DIVISOR = 1000;    // to ampere
-static const int FREQUENCE_DIVISOR = 100;   // to herz
+static const int FREQUENCY_DIVISOR = 100;   // to herz
 //static const uint32_t smadata2plus_serial = 0x3b225946;
 static const uint32_t smadata2plus_serial = 0x3a8b74b6;
 
 static const int NUM_RETRIES = 3;
+
 
 typedef enum user_type_s {
 	PASSWORD_USER,
@@ -1267,6 +1268,38 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	 */
 }
 
+static inline int32_t convert_ac_power(uint32_t value) {
+	if (value != PVLIB_INVALID_S32) {
+		return (int32_t)value;
+	} else {
+		return PVLIB_INVALID_S32;
+	}
+}
+
+static inline int32_t convert_ac_voltage(uint32_t value) {
+	if (value != PVLIB_INVALID_U32) {
+		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
+	} else {
+		return PVLIB_INVALID_S32;
+	}
+}
+
+static inline int32_t convert_ac_current(uint32_t value) {
+	if (value != PVLIB_INVALID_U32) {
+		return (int32_t)value * 1000 / CURRENT_DIVISOR;
+	} else {
+		return PVLIB_INVALID_S32;
+	}
+}
+
+static inline int32_t convert_frequency(uint32_t value) {
+	if (value != PVLIB_INVALID_U32) {
+		return value * 1000 / FREQUENCY_DIVISOR;
+	} else {
+		return PVLIB_INVALID_S32;
+	}
+}
+
 static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 {
 	smadata2plus_t *sma = prot->handle;;
@@ -1274,6 +1307,8 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 	int cnt = 0;
 	record_t records[20];
 	int num_recs = 20;
+
+	pvlib_init_ac(ac);
 
 	do {
 		ret = read_records(sma, 0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
@@ -1287,7 +1322,7 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 		}
 	} while (ret < 0);
 
-	ac->num_lines = 3;
+	ac->num_phases = 3;
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
 
@@ -1296,7 +1331,7 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 
 		switch(r->header.idx) {
 		case TOTAL_POWER:
-			ac->current_power = value;
+			ac->current_power = convert_ac_power(value);
 			break;
 		case MAX_PHASE1:
 			break;
@@ -1311,34 +1346,34 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 			LOG_DEBUG("UNKNOWN_2, %d", value);
 			break;
 		case POWER_PHASE1:
-			ac->power[0] = value;
+			ac->power[0] = convert_ac_power(value);
 			break;
 		case POWER_PHASE2:
-			ac->power[1] = value;
+			ac->power[1] = convert_ac_power(value);;
 			break;
 		case POWER_PHASE3:
-			ac->power[2] = value;
+			ac->power[2] = convert_ac_power(value);;
 			break;
 		case VOLTAGE_PHASE1:
-			ac->voltage[0] = value * 1000 / VOLTAGE_DIVISOR;
+			ac->voltage[0] = convert_ac_voltage(value);
 			break;
 		case VOLTAGE_PHASE2:
-			ac->voltage[1] = value * 1000 / VOLTAGE_DIVISOR;
+			ac->voltage[1] = convert_ac_voltage(value);;
 			break;
 		case VOLTAGE_PHASE3:
-			ac->voltage[2] = value * 1000 / VOLTAGE_DIVISOR;
+			ac->voltage[2] =  convert_ac_voltage(value);
 			break;
 		case CURRENT_PHASE1:
-			ac->current[0] = value * 1000 / CURRENT_DIVISOR;
+			ac->current[0] = convert_ac_current(value);
 			break;
 		case CURRENT_PHASE2:
-			ac->current[1] = value * 1000 / CURRENT_DIVISOR;
+			ac->current[1] = convert_ac_current(value);
 			break;
 		case CURRENT_PHASE3:
-			ac->current[2] = value * 1000 / CURRENT_DIVISOR;
+			ac->current[2] = convert_ac_current(value);
 			break;
 		case FREQUENCE:
-			ac->frequence=value * 1000 / FREQUENCE_DIVISOR;
+			ac->frequency = convert_frequency(value);
 			break;
 		default:
 			break;
@@ -1348,6 +1383,31 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 	return 0;
 }
 
+int32_t convert_dc_power(uint32_t value) {
+	if (value != PVLIB_INVALID_S32) {
+		return (int32_t)value;
+	} else {
+		return PVLIB_INVALID_U32;
+	}
+}
+
+int32_t convert_dc_voltage(uint32_t value) {
+	if (value != PVLIB_INVALID_S32) {
+		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
+	} else {
+		return PVLIB_INVALID_S32;
+	}
+}
+
+int32_t convert_dc_current(uint32_t value) {
+	if (value != PVLIB_INVALID_S32) {
+		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
+	} else {
+		return PVLIB_INVALID_S32;
+	}
+}
+
+
 static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 {
 	smadata2plus_t *sma = prot->handle;;
@@ -1355,6 +1415,8 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 	int cnt = 0;
 	record_t records[9];
 	int num_recs = 9;
+
+	pvlib_init_dc(dc);
 
 	do {
 		ret = read_records(sma, 0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
@@ -1388,13 +1450,13 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 
 		switch (r->header.idx) {
 		case DC_POWER:
-			dc->power[tracker - 1] = value;
+			dc->power[tracker - 1] = convert_dc_power(value);
 			break;
 		case DC_VOLTAGE:
-			dc->voltage[tracker - 1] = value * 1000 / VOLTAGE_DIVISOR;
+			dc->voltage[tracker - 1] = convert_dc_voltage(value);
 			break;
 		case DC_CURRENT:
-			dc->current[tracker - 1] = value * 1000 / CURRENT_DIVISOR;
+			dc->current[tracker - 1] = convert_dc_current(value);
 			break;
 		default:
 			break;
@@ -1404,6 +1466,14 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 	return 0;
 }
 
+int64_t convert_stats_value(uint64_t value) {
+	if (value != PVLIB_INVALID_U64) {
+		return (int64_t)value * 1000 / VOLTAGE_DIVISOR;
+	} else {
+		return PVLIB_INVALID_S64;
+	}
+}
+
 static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 {
 	smadata2plus_t *sma = prot->handle;;
@@ -1411,6 +1481,8 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 	int cnt = 0;
 	record_t records[4];
 	int num_recs = 4;
+
+	pvlib_init_stats(stats);
 
 	do {
 		ret = read_records(sma, 0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
@@ -1427,22 +1499,22 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 	for (int i = 0; i < num_recs; i++) {
 		record_t *r = &records[i];
 
-		uint64_t value = r->record.r2.value;
+		int64_t value = (int64_t)r->record.r2.value;
 
 		LOG_DEBUG("Read stats: idx %x value: %"PRIu64, r->header.idx, value);
 
 		switch (r->header.idx) {
 		case STAT_TOTAL_YIELD:
-			stats->total_yield = (uint32_t)value;
+			stats->total_yield = convert_stats_value(value);
 			break;
 		case STAT_DAY_YIELD:
-			stats->day_yield = (uint32_t)value;
+			stats->day_yield = convert_stats_value(value);
 			break;
 		case STAT_OPERATION_TIME:
-			stats->operation_time = (uint32_t)value;
+			stats->operation_time = convert_stats_value(value);
 			break;
 		case STAT_FEED_IN_TIME:
-			stats->feed_in_time = (uint32_t)value;
+			stats->feed_in_time = convert_stats_value(value);
 			break;
 		default:
 			break;

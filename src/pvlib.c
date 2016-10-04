@@ -170,3 +170,34 @@ void pvlib_close(pvlib_plant_t *plant)
 	connection_close(plant->con);
 	free(plant);
 }
+
+void pvlib_init_ac(pvlib_ac_t *ac) {
+	ac->current_power     = PVLIB_INVALID_S32;
+	ac->frequency         = PVLIB_INVALID_S32;
+	ac->num_phases        = 0;
+
+	for (int i = 0; i < sizeof(ac->power) / sizeof(ac->power[0]); ++i) {
+		ac->power[i]   = PVLIB_INVALID_S32;
+		ac->voltage[i] = PVLIB_INVALID_S32;
+		ac->current[i] = PVLIB_INVALID_S32;
+	}
+}
+
+void pvlib_init_dc(pvlib_dc_t *dc) {
+	dc->current_power     = PVLIB_INVALID_S32;
+	dc->num_lines         = 0;
+
+	for (int i = 0; i < sizeof(dc->power) / sizeof(dc->power[0]); ++i) {
+		dc->power[i]   = PVLIB_INVALID_S32;
+		dc->voltage[i] = PVLIB_INVALID_S32;
+		dc->current[i] = PVLIB_INVALID_S32;
+	}
+}
+
+void pvlib_init_stats(pvlib_stats_t *stats) {
+	stats->total_yield =  PVLIB_INVALID_S64;
+	stats->day_yield   =  PVLIB_INVALID_S64;
+	stats->operation_time = PVLIB_INVALID_S64;
+	stats->feed_in_time   = PVLIB_INVALID_S64;
+}
+
