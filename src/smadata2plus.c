@@ -1463,6 +1463,22 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 		}
 	}
 
+	bool valid_power = false;
+	for (int i = 0; i < dc->num_lines; ++i) {
+		if (dc->power[i] != PVLIB_INVALID_S32) {
+			valid_power = true;
+		}
+	}
+
+	if (valid_power) {
+		dc->current_power = 0;
+		for (int i = 0; i < dc->num_lines; ++i) {
+			if (dc->power[i] != PVLIB_INVALID_S32) {
+				dc->current_power += dc->power[i];
+			}
+		}
+	}
+
 	return 0;
 }
 
