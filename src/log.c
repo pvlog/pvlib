@@ -25,6 +25,8 @@
 #include "log.h"
 #include "thread.h"
 
+static thread_mutex_t mutex = THREAD_MUTEX_INITIALIZER;
+
 static int log_severity = 0;
 static FILE *fd;
 
@@ -56,6 +58,7 @@ void log_hex(log_severity_t severity, const char *file, int line, const char *me
 		uint8_t *data, int len)
 {
 	if (log_severity & severity) {
+		thread_mutex_lock(&mutex);
 		int i = 0;
 
 		fprintf(fd,
@@ -70,12 +73,14 @@ void log_hex(log_severity_t severity, const char *file, int line, const char *me
 				"------------------------------------------------------------------------------\n");
 
 		fprintf(fd, "\n");
+		thread_mutex_unlock(&mutex);
 	}
 }
 
 void log_log(log_severity_t severity, const char *file, int line, const char *format, ...)
 {
 	if (log_severity & severity) {
+		thread_mutex_lock(&mutex);
 		va_list args;
 
 		if (severity == LOG_ERROR) {
@@ -96,5 +101,6 @@ void log_log(log_severity_t severity, const char *file, int line, const char *fo
 		va_end(args);
 
 		fprintf(stderr, "\033[0m\n");
+		thread_mutex_unlock(&mutex);
 	}
 }

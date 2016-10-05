@@ -1564,10 +1564,10 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 	do {
 		ret = read_records(sma, 0x5180, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Reading inverter info  failed!");
+			LOG_ERROR("Reading inverter status  failed!");
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Reading inverter info failed! Retrying ...");
+			LOG_WARNING("Reading inverter status failed! Retrying ...");
 			cnt++;
 			thread_sleep(1000 * cnt);
 		}
