@@ -260,7 +260,7 @@ static int packet_event(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 		if (cmd_04(sma, packet) < 0) return -1;
 		break;
 	default:
-		break;
+		LOG_ERROR("Got unknown cmd: %d", packet->cmd);
 	}
 
 	return 0;
@@ -291,6 +291,8 @@ static void *worker_thread(void *arg)
 			goto error;
 		} else if (ret == 0) {
 			continue;
+		} else if (ret != HEADER_SIZE) {
+			goto error;
 		}
 
 		if (parse_header(buf, &packet) < 0) {
@@ -308,7 +310,7 @@ static void *worker_thread(void *arg)
 			thread_sem_aquire(&sma->free);
 			memcpy(&sma->packet, &packet, sizeof(packet));
 			sma->packet.data = sma->buf;
-			if (connection_read(sma->con, sma->packet.data, sma->packet.len, TIMEOUT) < 0) {
+			if ((sma->packet.len = connection_read(sma->con, sma->packet.data, sma->packet.len, TIMEOUT)) < 0) {
 				goto error;
 			}
 
@@ -316,11 +318,11 @@ static void *worker_thread(void *arg)
 
 			thread_sem_release(&sma->used);
 		} else {
-			if (connection_read(sma->con, packet.data, packet.len, TIMEOUT) < 0) {
+			if ((sma->packet.len = connection_read(sma->con, packet.data, packet.len, TIMEOUT)) < 0) {
 				goto error;
 			}
 
-			LOG_TRACE_HEX("received smabluetooth packet:", packet.data, packet.len);
+			LOG_TRACE_HEX("received non ssmabluetooth packet:", packet.data, packet.len);
 
 			if (for_us) {
 				if (packet_event(sma, &packet) < 0) {
