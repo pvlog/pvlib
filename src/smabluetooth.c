@@ -314,7 +314,7 @@ static void *worker_thread(void *arg)
 				goto error;
 			}
 
-			LOG_TRACE_HEX("received smabluetooth packet:", sma->packet, sma->packet.len);
+			LOG_TRACE_HEX("received smabluetooth packet:", sma->packet.data, sma->packet.len);
 
 			thread_sem_release(&sma->used);
 		} else {
