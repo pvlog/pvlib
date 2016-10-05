@@ -322,7 +322,7 @@ static void *worker_thread(void *arg)
 				goto error;
 			}
 
-			LOG_TRACE_HEX("received non ssmabluetooth packet:", packet.data, packet.len);
+			LOG_TRACE_HEX("received non smadata2plus packet:", packet.data, packet.len);
 
 			if (for_us) {
 				if (packet_event(sma, &packet) < 0) {
