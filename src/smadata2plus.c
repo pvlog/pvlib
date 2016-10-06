@@ -608,6 +608,32 @@ static int reset_devices(smadata2plus_t *sma)
 	return request_channel(sma, 0, 0, 0);
 }
 
+static int logout(smadata2plus_t *sma)
+{
+	smadata2plus_packet_t packet;
+	uint8_t buf[8];
+
+	packet.ctrl = CTRL_MASTER;
+	packet.dst = ADDR_BROADCAST;
+	packet.flag = 0x03;
+	packet.data = buf;
+	packet.len = sizeof(buf);
+	packet.packet_num = 0;
+	packet.start = true;
+
+	buf[0] = 0x0e;
+	buf[1] = 0x01;
+	buf[2] = 0xfd;
+	buf[3] = 0xff;
+	buf[4] = 0xff;
+	buf[5] = 0xff;
+	buf[6] = 0xff;
+	buf[7] = 0xff;
+
+	return smadata2plus_write(sma, &packet);
+}
+
+
 /*
  * Find all devices in net and extract serial and mac.
  */
@@ -1188,6 +1214,10 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 
 	device_num = smabluetooth_device_num(sma->sma);
 	LOG_INFO("%d devices!", device_num);
+
+	if ((ret = logout(sma)) < 0) {
+		return ret;
+	}
 
 	do {
 		ret = discover_devices(sma, device_num);
