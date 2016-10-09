@@ -334,7 +334,7 @@ static void *worker_thread(void *arg)
 			memcpy(&sma->packet, &packet, sizeof(packet));
 			sma->packet.data = sma->buf;
 
-			if ((ret = read_complete_len(sma->con, sma->packet.data, sma->packet.len, TIMEOUT)) < 0) {
+			if ((sma->packet.len = read_complete_len(sma->con, sma->packet.data, sma->packet.len, TIMEOUT)) < 0) {
 				goto error;
 			}
 
