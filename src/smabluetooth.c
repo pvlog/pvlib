@@ -271,7 +271,7 @@ static int packet_event(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 //if we got bytes but not requested size return -1
 static int read_complete_len(connection_t *con, uint8_t *data, int len, int timeout)
 {
-	int ret;
+	int ret = 0;
 	int pos = 0;
 
 	do {
@@ -285,9 +285,9 @@ static int read_complete_len(connection_t *con, uint8_t *data, int len, int time
 			return -1; //we got part of data and then timeout
 		}
 
-	} while (len >= 0);
+	} while (pos != 0 && len > 0);
 
-	return len;
+	return pos;
 }
 
 static void *worker_thread(void *arg)
