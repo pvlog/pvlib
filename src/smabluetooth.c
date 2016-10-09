@@ -265,6 +265,31 @@ static int packet_event(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 
 	return 0;
 }
+
+//read requested number of bytes
+//if we got null bytes and timeout return 0
+//if we got bytes but not requested size return -1
+static int read_complete_len(connection_t *con, uint8_t *data, int len, int timeout)
+{
+	int ret;
+	int pos = 0;
+
+	do {
+		if ((ret = connection_read(con, data + pos, len, TIMEOUT)) < 0) {
+			return -1;
+		}
+		len -= ret;
+		pos += ret;
+
+		if (ret == 0 && pos != 0) {
+			return -1; //we got part of data and then timeout
+		}
+
+	} while (len >= 0);
+
+	return len;
+}
+
 static void *worker_thread(void *arg)
 {
 	smabluetooth_t *sma;
@@ -285,14 +310,12 @@ static void *worker_thread(void *arg)
 			return NULL;
 		}
 
-		ret = connection_read(sma->con, buf, HEADER_SIZE, TIMEOUT);
+		ret = read_complete_len(sma->con, buf, HEADER_SIZE, TIMEOUT);
 
 		if (ret < 0) {
 			goto error;
 		} else if (ret == 0) {
 			continue;
-		} else if (ret != HEADER_SIZE) {
-			goto error;
 		}
 
 		if (parse_header(buf, &packet) < 0) {
@@ -310,7 +333,8 @@ static void *worker_thread(void *arg)
 			thread_sem_aquire(&sma->free);
 			memcpy(&sma->packet, &packet, sizeof(packet));
 			sma->packet.data = sma->buf;
-			if ((sma->packet.len = connection_read(sma->con, sma->packet.data, sma->packet.len, TIMEOUT)) < 0) {
+
+			if ((ret = read_complete_len(sma->con, sma->packet.data, sma->packet.len, TIMEOUT)) < 0) {
 				goto error;
 			}
 
@@ -354,8 +378,8 @@ int smabluetooth_connect(smabluetooth_t *sma)
 		}
 
 		if (thread_cond_timedwait(&sma->event, &sma->mutex, 15000) < 0) {
-			LOG_ERROR("Connection timeout!");
 			thread_mutex_unlock(&sma->mutex);
+			LOG_ERROR("Connection timeout!");
 			return -1;
 		}
 	}
@@ -436,6 +460,11 @@ int smabluetooth_write(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 		return -1;
 	}
 
+	if (!check_state(sma, STATE_CONNECTED)) {
+		LOG_ERROR("Not Connected!");
+		return -1;
+	}
+
 	buf[0] = 0x7e;
 	buf[1] = (uint8_t) len;
 	buf[2] = 0x00;
@@ -467,6 +496,11 @@ int smabluetooth_write(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 int smabluetooth_read(smabluetooth_t *sma, smabluetooth_packet_t *packet)
 {
 	int len;
+
+	if (!check_state(sma, STATE_CONNECTED)) {
+		LOG_ERROR("Not Connected!");
+		return -1;
+	}
 
 	if (thread_sem_timedaquire(&sma->used, 5000) < 0) {
 		LOG_ERROR("Packet timeout!");
