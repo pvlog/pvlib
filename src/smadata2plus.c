@@ -247,7 +247,7 @@ static int parse_channel_records(const uint8_t *buf,
 	uint16_t object = byte_parse_u16_little(buf + 2);
 	LOG_DEBUG("Object id %02x", object);
 	if (object != requested_object) {
-		LOG_ERROR("Invalid object requested %d got %d", object, requested_object);
+		LOG_ERROR("Invalid object requested %02x got %02x", object, requested_object);
 		return -1;
 	}
 
@@ -1135,8 +1135,10 @@ static int sync_time(smadata2plus_t *sma) {
 
 	time_t inverter_time1 = byte_parse_u32_little(buf + 16);
 	time_t inverter_time2 = byte_parse_u32_little(buf + 24);
+	time_t system_time = time(NULL);
 	LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
 	LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
+	LOG_INFO("System time: %s", ctime(&system_time));
 
 	uint32_t tz_dst = byte_parse_u32_little(buf + 28);
 	int tz = tz_dst & 0xfffffe;
@@ -1165,7 +1167,9 @@ static int sync_time(smadata2plus_t *sma) {
 
 	time_t cur_time = time(NULL);
 
-	if ((abs(cur_time - inverter_time1)) > 10) {
+	int time_deviation = abs(cur_time - inverter_time1);
+	if ((time_deviation) > 10) {
+		LOG_INFO("Time deviation %d seconds! Setting inverter time!", time_deviation);
 		memset(&packet, 0x00, sizeof(packet));
 		memset(buf, 0x00, sizeof(buf));
 
