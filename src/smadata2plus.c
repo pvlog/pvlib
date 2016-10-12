@@ -124,7 +124,8 @@ struct smadata2plus_s {
 	connection_t *con;
 	smabluetooth_t *sma;
 	smanet_t *smanet;
-	uint16_t pkt_cnt; // Packet counter
+	uint16_t transaction_cntr; // Packet counter
+	bool transaction_active;
 
 	device_t *devices;
 	int device_num;
@@ -247,7 +248,7 @@ static int parse_channel_records(const uint8_t *buf,
 	uint16_t object = byte_parse_u16_little(buf + 2);
 	LOG_DEBUG("Object id %02x", object);
 	if (object != requested_object) {
-		LOG_ERROR("Invalid object requested %02x got %02x", object, requested_object);
+		LOG_ERROR("Invalid object requested %d got %d", object, requested_object);
 		return -1;
 	}
 
@@ -350,17 +351,17 @@ static int read_tags(smadata2plus_t *sma, FILE *file) {
 	return 0;
 }
 
-static void reset_pkt_cnt(uint16_t *pkt_cnt)
+static void reset_transaction_cntr(uint16_t *pkt_cnt)
 {
 	*pkt_cnt = 0x8000;
 }
 
-static void pkt_cnt_inc(smadata2plus_t *sma)
+static void inc_transaction_cntr(smadata2plus_t *sma)
 {
-	if ((sma->pkt_cnt < 0x8000) || (sma->pkt_cnt == 0xffff)) {
-		sma->pkt_cnt = 0x8000;
+	if ((sma->transaction_cntr < 0x8000) || (sma->transaction_cntr == 0xffff)) {
+		sma->transaction_cntr = 0x8000;
 	} else {
-		sma->pkt_cnt++;
+		sma->transaction_cntr++;
 	}
 }
 
@@ -448,9 +449,22 @@ static int smadata2plus_write_replay(smadata2plus_t *sma,
 	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
 }
 
+static void begin_transaction(smadata2plus_t *sma)
+{
+	assert(sma->transaction_active == false);
+	sma->transaction_active = true;
+}
+
+static void end_transaction(smadata2plus_t *sma)
+{
+	assert(sma->transaction_active == true);
+	sma->transaction_active = false;
+	inc_transaction_cntr(sma);
+}
+
 static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 {
-	return smadata2plus_write_replay(sma, packet, sma->pkt_cnt);
+	return smadata2plus_write_replay(sma, packet, sma->transaction_cntr);
 }
 
 
@@ -486,35 +500,6 @@ static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 }
 
 /*
- static int sync_online(smadata2plus_t *sma)
- {
- smadata2plus_packet_t packet;
- uint8_t buf[16];
- int ret;
-
- packet.ctrl = CTRL_MASTER;
- packet.dst  = ADDR_BROADCAST;
- packet.flag = 0x05;
- packet.data = buf;
- packet.len  = sizeof(buf);
- packet.cnt  = 0;
- packet.start = 1;
-
- memset(buf, 0x00, sizeof(buf));
-
- buf[0] = 0x0c;
- buf[2] = 0xfd;
- buf[3] = 0xff;
-
- new_transaction(sma);
- ret = smadata2plus_write(sma, &packet);
- commit_transaction(sma);
-
- return ret;
- }
- */
-
-/*
  * Request a channel.
  */
 static int request_channel(smadata2plus_t *sma,
@@ -544,7 +529,7 @@ static int request_channel(smadata2plus_t *sma,
 	byte_store_u32_little(&buf[8], to_idx);
 
 	ret = smadata2plus_write(sma, &packet);
-	pkt_cnt_inc(sma);
+	inc_transaction_cntr(sma);
 
 	return ret;
 }
@@ -561,8 +546,12 @@ static int read_records(smadata2plus_t *sma,
 	smadata2plus_packet_t packet;
 	uint8_t data[512];
 
+
+	begin_transaction(sma);
+
 	if ((ret = request_channel(sma, object, from_idx, to_idx)) < 0) {
 		LOG_ERROR("Failed requesting %04X %04X % 04X", object, from_idx, to_idx);
+		end_transaction(sma);
 		return ret;
 	}
 
@@ -571,8 +560,11 @@ static int read_records(smadata2plus_t *sma,
 	packet.len = sizeof(data);
 
 	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+		end_transaction(sma);
 		return ret;
 	}
+
+	end_transaction(sma);
 
 	if ((ret = parse_channel_records(data, packet.len, records, len, type, object)) < 0) {
 		LOG_ERROR("Error parsing record of %04X %04X % 04X", object, from_idx, to_idx);
@@ -630,7 +622,11 @@ static int logout(smadata2plus_t *sma)
 	buf[6] = 0xff;
 	buf[7] = 0xff;
 
-	return smadata2plus_write(sma, &packet);
+	begin_transaction(sma);
+	int ret = smadata2plus_write(sma, &packet);
+	end_transaction(sma);
+
+	return ret;
 }
 
 
@@ -642,7 +638,10 @@ static int discover_devices(smadata2plus_t *sma, int device_num)
 	smadata2plus_packet_t packet;
 	uint8_t buf[52];
 
+	begin_transaction(sma);
+
 	if (request_channel(sma, 0, 0, 0) < 0) {
+		end_transaction(sma);
 		return -1;
 	}
 
@@ -651,11 +650,14 @@ static int discover_devices(smadata2plus_t *sma, int device_num)
 		packet.len = sizeof(buf);
 
 		if (smadata2plus_read(sma, &packet) < 0) {
+			end_transaction(sma);
 			return -1;
 		}
 
 		add_device(sma, packet.src, packet.src_mac);
 	}
+
+	end_transaction(sma);
 
 	return 0;
 }
@@ -742,13 +744,17 @@ static int authenticate(smadata2plus_t *sma, const char *password, user_type_t u
 	packet.data = buf;
 	packet.len = 52;
 
+	begin_transaction(sma);
+
 	if (send_password(sma, password, user) < 0) {
 		LOG_ERROR("Failed sending password!");
+		end_transaction(sma);
 		return -1;
 	}
 
 	for (int j = 0; j < sma->device_num; j++) {
 		if (smadata2plus_read(sma, &packet) < 0) {
+			end_transaction(sma);
 			return -1;
 		}
 
@@ -769,279 +775,15 @@ static int authenticate(smadata2plus_t *sma, const char *password, user_type_t u
 
 	if (sma->device_num == 1) {
 		if (auth_acknowledge(sma, sma->devices[0].serial) < 0) {
+			end_transaction(sma);
 			return -1;
 		}
 	}
 
-	pkt_cnt_inc(sma);
+	end_transaction(sma);
 
 	return 0;
 }
-
-#if 0
-static int send_time(smadata2plus_t *sma)
-{
-	uint8_t buf[40];
-	smadata2plus_packet_t packet;
-	time_t cur_time;
-	int ret;
-
-	memset(buf, 0x00, sizeof(buf));
-
-	buf[0] = 0x0a;
-	buf[1] = 0x02;
-	buf[3] = 0xf0;
-	buf[5] = 0x6d;
-	buf[6] = 0x23;
-	buf[9] = 0x6d;
-	buf[10] = 0x23;
-	buf[13] = 0x6d;
-	buf[14] = 0x23;
-
-	cur_time = time(NULL);
-	LOG_INFO("send_time: %s", ctime(&cur_time));
-
-	/* FIXME: time ??? */
-	byte_store_u32_little(&buf[16], cur_time);
-	byte_store_u32_little(&buf[20], cur_time - 10);
-	byte_store_u32_little(&buf[24], cur_time);
-	byte_store_u32_little(&buf[28], 0x00000e11);
-	byte_store_u32_little(&buf[32], 0x007eff03);
-
-	buf[36] = 1;
-
-	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
-	packet.flag = 0x00;
-	packet.data = buf;
-	packet.len = sizeof(buf);
-	packet.packet_num = 0;
-	packet.start = 1;
-
-	ret = smadata2plus_write(sma, &packet);
-
-	return ret;
-}
-
-#endif
-
-/*
- static int read_archiv_channel(smadata2plus_t *sma, uint32_t address, uint32_t time_from, uint32_t time_to)
- {
- smadata2plus_packet_t packet;
- uint8_t buf[16];
- int ret;
-
- packet.ctrl = CTRL_MASTER | CTRL_NO_BROADCAST;
- packet.dst  = address;
- packet.flag = 0x00;
- packet.data = buf;
- packet.len  = sizeof(buf);
- packet.cnt   = 0;
- packet.start = 1;
-
- memset(buf, 0x00, sizeof(buf));
-
- buf[1] = 0x02;
- buf[3] = 0x70;
-
- byte_store_u32_little(&buf[4], time_from);
- byte_store_u32_little(&buf[8], time_to);
-
- new_transaction(sma);
- ret = smadata2plus_write(sma, &packet);
- commit_transaction(sma);
-
- return ret;
- }
- */
-/*
- int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t from_idx, uint32_t to_idx)
- {
- smadata2plus_packet_t packet;
-
- if (read_channel(sma, channel, from_idx, to_idx) < 0) {
- return -1;
- }
-
- packet.len  = 0;
- packet.data = NULL;
-
- if (smadata2plus_read(sma, &packet) < 0) {
- LOG_ERROR("Read failed!");
- return -1;
- }
-
- return 0;
- }
- */
-
-#if 0
-static int cmd_A008(smadata2plus_t *sma)
-{
-	uint8_t buf[8];
-	smadata2plus_packet_t packet;
-	int ret;
-
-	buf[0] = 0x0e;
-	buf[1] = 0x01;
-	buf[2] = 0xfd;
-	memset(&buf[3], 0xff, 5);
-
-	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
-	packet.flag = 0x03;
-	packet.data = buf;
-	packet.len = sizeof(buf);
-	packet.packet_num = 0;
-	packet.start = 1;
-
-	ret = smadata2plus_write(sma, &packet);
-
-	return ret;
-}
-
-static int cmd_E808(smadata2plus_t *sma, uint32_t serial)
-{
-	uint8_t buf[8];
-	smadata2plus_packet_t packet;
-
-	memset(buf, 0x00, 8);
-	buf[0] = 0x0d;
-	buf[1] = 0x04;
-	buf[2] = 0xfd;
-	buf[3] = 0xff;
-	buf[4] = 0x01;
-
-	//   packet.cmd  = CMD_UNKNOWN;
-	packet.ctrl = CTRL_MASTER | CTRL_NO_BROADCAST | CTRL_UNKNOWN;
-	packet.dst = serial;
-	packet.flag = 0x01;
-	packet.data = buf;
-	packet.len = sizeof(buf);
-	packet.packet_num = 0;
-	packet.start = 1;
-
-	//new_transaction(sma);
-	return smadata2plus_write(sma, &packet);
-	// commit_transaction(sma);
-}
-#endif
-
-#if 0
-static int time_setup(smadata2plus_t *sma)
-{
-	//    smadata2plus_packet_t packet;
-	//    uint8_t buf[42];
-	//    uint8_t unknown[6];
-	//    uint8_t unknown2[5];
-	//    uint32_t time1;
-	//    uint32_t time2;
-	//    uint32_t serial;
-
-
-	if (send_time(sma) < 0) return -1;
-	/*
-	 packet.len  = sizeof(buf);
-	 packet.data = buf;
-
-
-	 if (smadata2plus_read(sma, &packet) < 0) {
-	 LOG_ERROR("smadata2plus_read failed!");
-	 return -1;
-	 }
-
-	 if (packet.cmd != CMD_TIME) {
-	 LOG_ERROR("Invalid packet cmd!");
-	 return -1;
-	 }
-
-	 memcpy(unknown, buf, 6);
-	 time1 = byte_parse_u32_little(&buf[18]);
-	 time2 = byte_parse_u32_little(&buf[22]);
-	 memcpy(unknown2, &buf[30], 5);
-
-	 serial = packet.src;
-
-	 LOG_INFO("time answer1: %s", ctime((time_t*)&time1));
-	 LOG_INFO("time answer2: %s", ctime((time_t*)&time2));
-
-	 memset(&packet, 0x00, sizeof(packet));
-	 memset(buf, 0x00, 10);
-
-	 memcpy(buf, unknown, 6);
-	 buf[6] = 0x01;
-
-	 packet.cmd  = CMD_UNKNOWN;
-	 packet.ctrl = CTRL_MASTER | CTRL_UNKNOWN | CTRL_NO_BROADCAST;
-	 packet.dst  = serial;
-	 packet.flag = 0x00;
-	 packet.data = buf;
-	 packet.len  = 10;
-	 packet.cnt   = 0xff;
-	 packet.start = 0;
-
-	 if (smadata2plus_write(sma, &packet) < 0) {
-	 LOG_ERROR("smadata2plus_write failed!");
-	 return -1;
-	 }
-
-	 memset(&packet, 0x00, sizeof(packet));
-	 memset(buf, 0x00, 40);
-
-
-	 packet.cmd  = CMD_TIME;
-	 packet.ctrl = CTRL_MASTER;
-	 packet.dst  = ADDR_BROADCAST;
-	 packet.flag = 0x00;
-	 packet.data = buf;
-	 packet.len  = 40;
-	 packet.cnt   = 0;
-	 packet.start = 1;
-
-	 buf[0] = 0x0a;
-	 buf[1] = 0x02;
-	 buf[3] = 0xf0;
-	 buf[5] = 0x6d;
-	 buf[6] = 0x23;
-	 buf[9] = 0x6d;
-	 buf[10] = 0x23;
-	 buf[13] = 0x6d;
-	 buf[14] = 0x23;
-
-	 byte_store_u32_little(&buf[16], time1);
-	 byte_store_u32_little(&buf[20], time2);
-	 byte_store_u32_little(&buf[24], time1);
-
-	 memcpy(&buf[28], unknown2, 5);
-	 buf[33] = 0xfe;
-	 buf[34] = 0x7e;
-	 buf[36] = 0x01;
-
-	 if (smadata2plus_write(sma, &packet) < 0) {
-	 LOG_ERROR("smadata2plus_write failed!");
-	 return -1;
-	 }
-	 */
-	return 0;
-}
-
-#endif
-/*
- static int read_status(smadata2plus_t *sma)
- {
- smadata2plus_packet_t packet;
-
- packet.len  = 0;
- packet.data = NULL;
-
- read_channel(sma, 0x5800, 0x821e00, 0x8221ff);
- read_channel(sma, 0x5800, 0xa21e00, 0xa21eff);
- read_channel(sma, 0x5180, 0x214800, 0x2148ff);
-
- return 0;
- }
- */
 
 static smadata2plus_t *init(connection_t *con)
 {
@@ -1062,7 +804,8 @@ static smadata2plus_t *init(connection_t *con)
 	sma->smanet = smanet;
 	sma->tags = NULL;
 
-	reset_pkt_cnt(&sma->pkt_cnt);
+	sma->transaction_active = false;
+	reset_transaction_cntr(&sma->transaction_cntr);
 
 	return sma;
 }
@@ -1076,20 +819,6 @@ void smadata2plus_close(protocol_t *protocol)
 	free(sma);
 	free(protocol);
 }
-/*
- int test_channel(smadata2plus_t *sma, uint8_t channel, uint8_t type, uint32_t from, uint16_t to)
- {
- smadata2plus_packet_t packet;
-
- packet.len  = 0;
- packet.data = NULL;
-
-
- if (read_channel(sma, type, channel, from, to) < 0) return -1;
-
- return smadata2plus_read(sma, &packet);
- }
- */
 
 static int sync_time(smadata2plus_t *sma) {
 	smadata2plus_packet_t packet;
@@ -1115,11 +844,18 @@ static int sync_time(smadata2plus_t *sma) {
 	byte_store_u32_little(buf + 28, 1);
 	byte_store_u32_little(buf + 32, 1);
 
+	begin_transaction(sma);
 	if ((ret = smadata2plus_write(sma, &packet)) < 0) {
 		LOG_ERROR("Error reading inverter date!");
+		end_transaction(sma);
 		return ret;
 	}
 
+	end_transaction(sma);
+
+	//This packet is not an replay
+	//It's transaction counter is completely different
+	//and the reply flag is not set
 	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
 		LOG_ERROR("smadata2plus_read failed!");
 		return ret;
@@ -1135,10 +871,8 @@ static int sync_time(smadata2plus_t *sma) {
 
 	time_t inverter_time1 = byte_parse_u32_little(buf + 16);
 	time_t inverter_time2 = byte_parse_u32_little(buf + 24);
-	time_t system_time = time(NULL);
 	LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
 	LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
-	LOG_INFO("System time: %s", ctime(&system_time));
 
 	uint32_t tz_dst = byte_parse_u32_little(buf + 28);
 	int tz = tz_dst & 0xfffffe;
@@ -1167,9 +901,7 @@ static int sync_time(smadata2plus_t *sma) {
 
 	time_t cur_time = time(NULL);
 
-	int time_deviation = abs(cur_time - inverter_time1);
-	if ((time_deviation) > 10) {
-		LOG_INFO("Time deviation %d seconds! Setting inverter time!", time_deviation);
+	if ((abs(cur_time - inverter_time1)) > 10) {
 		memset(&packet, 0x00, sizeof(packet));
 		memset(buf, 0x00, sizeof(buf));
 
@@ -1193,10 +925,13 @@ static int sync_time(smadata2plus_t *sma) {
 		packet.packet_num = 0;
 		packet.start = 1;
 
+		begin_transaction(sma);
 		if ((ret = smadata2plus_write(sma, &packet)) < 0) {
 			LOG_ERROR("Error setting date!");
+			end_transaction(sma);
 			return ret;
 		}
+		end_transaction(sma);
 	}
 
 	return 0;
@@ -1264,55 +999,6 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	LOG_INFO("Synchronized time!");
 
 	return 0;
-
-	/*
-	 if (time_setup(sma) < 0) {
-	 LOG_ERROR("Time setup failed!");
-	 return -1;
-	 }
-	 */
-	/*
-	 if (read_status(sma) < 0) {
-	 LOG_ERROR("read status failed!");
-	 return -1;
-	 }
-
-	 packet.len  = 0;
-	 packet.data = NULL;
-
-	 if (smadata2plus_read(sma, &packet) < 0) {
-	 LOG_ERROR("Read failed!");
-	 return -1;
-	 }
-
-	 packet.len  = 0;
-	 packet.data = NULL;
-
-	 if (smadata2plus_read(sma, &packet) < 0) {
-	 LOG_ERROR("Read failed!");
-	 return -1;
-	 }
-
-	 packet.len  = 0;
-	 packet.data = NULL;
-
-	 if (smadata2plus_read(sma, &packet) < 0) {
-	 LOG_ERROR("Read failed!");
-	 return -1;
-	 }
-
-	 read_channel(sma, 0x5800, 0x870000, 0x87ffff);
-
-	 packet.len  = 0;
-	 packet.data = NULL;
-
-	 if (smadata2plus_read(sma, &packet) < 0) {
-	 LOG_ERROR("Read failed!");
-	 return -1;
-	 }
-
-	 return 0;
-	 */
 }
 
 static inline int32_t convert_ac_power(uint32_t value) {
@@ -1742,39 +1428,6 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 
 	return 0;
 }
-
-#if 0
-int smadata2plus_test(smadata2plus_t *sma)
-{
-	smadata2plus_packet_t packet;
-	uint8_t data[512];
-	int pos = 0;
-	int i = 0;
-
-	//    sync_online(sma);
-
-	if (read_channel(sma, 0x80, 0x54, 0x2000, 0x50ff) < 0) return -1;
-
-	memset(&packet, 0x00, sizeof(packet));
-	packet.data = data;
-	packet.len = sizeof(data);
-
-	if (smadata2plus_read(sma, &packet) < 0) {
-		return -1;
-	}
-
-	pos = 13;
-	i = 0;
-	while (pos + 11 < packet.len) {
-		uint32_t value = byte_parse_u32_little(&data[pos + 7]);
-		uint32_t value_time = byte_parse_u32_little(&data[pos + 3]);
-
-		LOG_INFO("value unknwon_%d, time: %s : %d", i++, ctime((time_t *)&value_time), value);
-		pos += 16;
-	}
-	return 0;
-}
-#endif
 
 static int smadata2plus_device_num(protocol_t *prot)
 {
