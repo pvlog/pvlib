@@ -18,24 +18,31 @@
  *
  *****************************************************************************/
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <errno.h>
-#include <assert.h>
-#include <inttypes.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <cerrno>
+#include <cassert>
+#include <chrono>
+#include <thread>
+#include <cinttypes>
 
-#include "smadata2plus.h"
-#include "smabluetooth.h"
-#include "smanet.h"
+#include <Protocol.h>
+#include <Smabluetooth.h>
+#include <Smadata2plus.h>
+#include <Smanet.h>
+
 #include "log.h"
 #include "byte.h"
 #include "pvlib.h"
-#include "protocol.h"
 #include "uthash.h"
 #include "resources.h"
-#include "thread.h"
+
+using std::this_thread::sleep_for;
+using std::chrono::seconds;
+
+#define SMADATA2PLUS_BROADCAST 0xffffffff
 
 static const uint16_t PROTOCOL = 0x6560;
 static const unsigned int HEADER_SIZE = 24;
@@ -58,10 +65,18 @@ static const uint32_t smadata2plus_serial = 0x3a8b74b6;
 static const int NUM_RETRIES = 3;
 
 
-typedef enum user_type_s {
-	PASSWORD_USER,
-	PASSWORD_INSTALLER
-} user_type_t;
+struct Packet {
+	char     src_mac[6];
+	uint16_t transaction_cntr;
+	uint8_t  ctrl;
+	uint32_t dst;
+	uint32_t src;
+	uint8_t  flag; /* unknown */
+	uint16_t packet_num;
+	bool     start;
+	uint8_t  *data;
+	int      len;
+};
 
 enum {
 	TOTAL_POWER    = 0x263f,
@@ -105,12 +120,6 @@ enum {
 	DEVICE_STATUS = 0x2148
 };
 
-typedef struct devices_s {
-	uint32_t serial;
-	uint8_t mac[6];
-	bool authenticated;
-} device_t;
-
 struct tag_hash {
     int num;
     char tag[128];
@@ -120,74 +129,95 @@ struct tag_hash {
 };
 
 
-struct smadata2plus_s {
-	connection_t *con;
-	smabluetooth_t *sma;
-	smanet_t *smanet;
-	uint16_t transaction_cntr; // Packet counter
-	bool transaction_active;
+//struct smadata2plus_s {
+//	connection_t *con;
+//	smabluetooth_t *sma;
+//	smanet_t *smanet;
+//	uint16_t transaction_cntr; // Packet counter
+//	bool transaction_active;
+//
+//	device_t *devices;
+//	int device_num;
+//
+//	struct tag_hash *tags;
+//
+//};
 
-	device_t *devices;
-	int device_num;
-
-	struct tag_hash *tags;
-
+struct Attribute {
+	uint32_t attribute;
+	bool     selected;
 };
 
-typedef struct {
-	uint32_t attribute;
-	bool selected;
-} attribute_t;
 
-
-typedef struct {
-	uint8_t cnt;
+struct RecordHeader {
+	uint8_t  cnt;
 	uint32_t idx;
-	uint8_t type; // 00, 04 -> type 1 or 2, 08 -> attributes, 0x10 -> string
+	uint8_t  type; // 00, 04 -> type 1 or 2, 08 -> attributes, 0x10 -> string
 	uint32_t time;
-} record_header_t;
+};
 
-typedef struct {
+struct Record1 {
 	uint32_t value1;
 	uint32_t value2;
 	uint32_t value3;
 	uint32_t value4;
 	uint32_t unknonwn;
-} record_1_t;
+};
 
-typedef struct {
+struct Record2 {
 	uint64_t value;
-} record_2_t;
+};
 
-typedef struct {
+struct Record3 {
 	uint8_t data[32];
-} record_3_t;
+};
 
 
-typedef enum {
-	RECORD_1,
-	RECORD_2,
-	RECORD_3
-}record_type_t;
+struct  Record {
+	RecordHeader header;
 
-typedef struct record {
-	record_header_t header;
-
-	record_type_t record_type;
+	Smadata2plus::RecordType record_type;
 
 	union {
-		record_1_t r1;
-		record_2_t r2;
-		record_3_t r3;
+		Record1 r1;
+		Record2 r2;
+		Record3 r3;
 	} record;
-} record_t;
+};
+
+class Transaction {
+	Smadata2plus *sma;
+
+public:
+	void begin() {
+		assert(sma->transaction_active == true);
+		sma->transaction_active = true;
+	}
+
+	void end() {
+		sma->transaction_active = false;
+		++sma->transaction_cntr;
+	}
+
+	Transaction(Smadata2plus *sma) : sma(sma) {
+		assert(sma->transaction_active == false);
+		sma->transaction_active = true;
+	}
+
+	~Transaction() {
+		if (sma->transaction_active) {
+			end();
+		}
+	}
+
+};
 
 
-static void parse_attributes(const uint8_t *data, int data_len, attribute_t *attributes, int *len)
+static void parseAttributes(const uint8_t *data, int dataLen, Attribute *attributes, int *len)
 {
-	int attribute_idx = 0;
+	int attributeIdx = 0;
 
-	for (int idx = 0; idx < data_len && attribute_idx < *len; idx += 4, attribute_idx++) {
+	for (int idx = 0; idx < dataLen && attributeIdx < *len; idx += 4, attributeIdx++) {
 		uint32_t attribute = byte_parse_u32_little(data + idx) & 0x00ffffff;
 		uint8_t selected = data[idx + 3];
 
@@ -195,21 +225,21 @@ static void parse_attributes(const uint8_t *data, int data_len, attribute_t *att
 			break; //end of enums
 		}
 
-		attributes[attribute_idx].attribute = attribute;
-		attributes[attribute_idx].selected  = selected;
+		attributes[attributeIdx].attribute = attribute;
+		attributes[attributeIdx].selected  = selected;
 	}
 
-	*len = attribute_idx;
+	*len = attributeIdx;
 }
 
-static void parse_record_header(const uint8_t* buf, record_header_t *header) {
-	header->cnt = buf[0];
-	header->idx = byte_parse_u16_little(buf + 1);
+static void parseRecordHeader(const uint8_t* buf, RecordHeader *header) {
+	header->cnt  = buf[0];
+	header->idx  = byte_parse_u16_little(buf + 1);
 	header->type = buf[3];
 	header->time = byte_parse_u32_little(buf + 4);
 }
 
-static void parse_record_1(const uint8_t *buf, record_1_t *r1)
+static void parseRecord1(const uint8_t *buf, Record1 *r1)
 {
 	r1->value1 = byte_parse_u32_little(buf);
 	r1->value2 = byte_parse_u32_little(buf + 4);
@@ -218,22 +248,22 @@ static void parse_record_1(const uint8_t *buf, record_1_t *r1)
 	r1->unknonwn = byte_parse_u32_little(buf + 16);
 }
 
-static void parse_record_2(const uint8_t *buf, record_2_t *r2)
+static void parseRecord2(const uint8_t *buf, Record2 *r2)
 {
 	r2->value = byte_parse_u64_little(buf);
 }
 
-static void parse_record_3(const uint8_t *buf, record_3_t *r3)
+static void parseRecord3(const uint8_t *buf, Record3 *r3)
 {
 	memcpy(r3->data, buf, 40);
 }
 
 
-static int parse_channel_records(const uint8_t *buf,
-                                 int len, record_t *records,
-                                 int *max_records,
-                                 record_type_t type,
-                                 int16_t requested_object)
+static int parseChannelRecords(const uint8_t *buf,
+                                 int len, Record *records,
+                                 int *maxRecords,
+                                 Smadata2plus::RecordType type,
+                                 int16_t requestedObject)
 {
 	if (len < 8) {
 		LOG_ERROR("Invalid record length %d", len);
@@ -247,8 +277,8 @@ static int parse_channel_records(const uint8_t *buf,
 
 	uint16_t object = byte_parse_u16_little(buf + 2);
 	LOG_DEBUG("Object id %02x", object);
-	if (object != requested_object) {
-		LOG_ERROR("Invalid object requested %d got %d", object, requested_object);
+	if (object != requestedObject) {
+		LOG_ERROR("Invalid object requested %d got %d", object, requestedObject);
 		return -1;
 	}
 
@@ -259,149 +289,138 @@ static int parse_channel_records(const uint8_t *buf,
 
 	size_t record_length = 0;
 	switch (type) {
-		case RECORD_1 : record_length = 28; break;
-		case RECORD_2 : record_length = 16; break;
-		case RECORD_3 : record_length = 40; break;
+		case Smadata2plus::RECORD_1 : record_length = 28; break;
+		case Smadata2plus::RECORD_2 : record_length = 16; break;
+		case Smadata2plus::RECORD_3 : record_length = 40; break;
 		default: assert(0 && "Invalid record!"); break;
 	}
 
 	int rec_idx = 0;
-	for (int i = 12; i < len && rec_idx < *max_records; i += record_length, rec_idx++) {
-		record_t *r = &records[rec_idx];
+	for (int i = 12; i < len && rec_idx < *maxRecords; i += record_length, rec_idx++) {
+		Record *r = &records[rec_idx];
 
-		parse_record_header(buf + i, &r->header);
+		parseRecordHeader(buf + i, &r->header);
 		switch (type) {
-			case RECORD_1 : parse_record_1(buf + i + 8, &r->record.r1); break;
-			case RECORD_2 : parse_record_2(buf + i + 8, &r->record.r2); break;
-			case RECORD_3 : parse_record_3(buf + i + 8, &r->record.r3);; break;
+			case Smadata2plus::RECORD_1 : parseRecord1(buf + i + 8, &r->record.r1); break;
+			case Smadata2plus::RECORD_2 : parseRecord2(buf + i + 8, &r->record.r2); break;
+			case Smadata2plus::RECORD_3 : parseRecord3(buf + i + 8, &r->record.r3);; break;
 			default: assert(0 && "Invalid record!"); break;
 		}
 	}
 
-	*max_records = rec_idx;
+	*maxRecords = rec_idx;
 
 	return 0;
 }
 
 
-static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message)
-{
-    struct tag_hash *s;
-    s = malloc(sizeof(*s));
-    if (s == NULL) {
-        LOG_ERROR("malloc failed!");
-        return -1;
-    }
+//static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message)
+//{
+//    struct tag_hash *s;
+//    s = malloc(sizeof(*s));
+//    if (s == NULL) {
+//        LOG_ERROR("malloc failed!");
+//        return -1;
+//    }
+//
+//    s->num = tag_num;
+//    strncpy(s->tag, tag, sizeof(s->tag) - 1);
+//    strncpy(s->message, tag_message, sizeof(s->message) - 1);
+//
+//    HASH_ADD_INT(sma->tags, num, s);
+//
+//    return 0;
+//}
+//
+//static struct tag_hash *find_tag(smadata2plus_t *sma, int num)
+//{
+//    struct tag_hash *s;
+//
+//    HASH_FIND_INT(sma->tags, &num, s);
+//
+//    return s;
+//}
+//
+//static int read_tags(smadata2plus_t *sma, FILE *file) {
+//	int ret;
+//
+//	char buf[256];
+//	char tag_num[256];
+//	char tag[256];
+//	char tag_name[256];
+//
+//	while (fgets(buf, sizeof(buf), file) != NULL ) {
+//		if (buf[0] == '#') { //remove comments
+//			continue;
+//		}
+//
+//		if (sscanf(buf, "%[^'=']=%[^';'];%s", tag_num, tag, tag_name) != 3) {
+//			LOG_ERROR("Invalid line %s (Ignoring it)", buf);
+//			continue;
+//		}
+//
+//		errno = 0;
+//		long num = strtol(tag_num, NULL, 10);
+//		if (errno != 0) {
+//			LOG_ERROR("Error parsing tag number from %s", tag_num);
+//			return -1;
+//		}
+//
+//		if ((ret = add_tag(sma, num, tag, tag_name)) < 0) {
+//			return ret;
+//		}
+//	}
+//
+//	if (ferror(file)) {
+//		LOG_ERROR("Error reading tag file: %s", strerror(errno));
+//		fclose(file);
+//		return -1;
+//	}
+//
+//	fclose(file);
+//	return 0;
+//}
 
-    s->num = tag_num;
-    strncpy(s->tag, tag, sizeof(s->tag) - 1);
-    strncpy(s->message, tag_message, sizeof(s->message) - 1);
+//static void reset_transaction_cntr(uint16_t *pkt_cnt)
+//{
+//	*pkt_cnt = 0x8000;
+//}
+//
+//static void inc_transaction_cntr(smadata2plus_t *sma)
+//{
+//	if ((sma->transaction_cntr < 0x8000) || (sma->transaction_cntr == 0xffff)) {
+//		sma->transaction_cntr = 0x8000;
+//	} else {
+//		sma->transaction_cntr++;
+//	}
+//}
 
-    HASH_ADD_INT(sma->tags, num, s);
-
-    return 0;
-}
-
-static struct tag_hash *find_tag(smadata2plus_t *sma, int num)
-{
-    struct tag_hash *s;
-
-    HASH_FIND_INT(sma->tags, &num, s);
-
-    return s;
-}
-
-static int read_tags(smadata2plus_t *sma, FILE *file) {
-	int ret;
-
-	char buf[256];
-	char tag_num[256];
-	char tag[256];
-	char tag_name[256];
-
-	while (fgets(buf, sizeof(buf), file) != NULL ) {
-		if (buf[0] == '#') { //remove comments
-			continue;
-		}
-
-		if (sscanf(buf, "%[^'=']=%[^';'];%s", tag_num, tag, tag_name) != 3) {
-			LOG_ERROR("Invalid line %s (Ignoring it)", buf);
-			continue;
-		}
-
-		errno = 0;
-		long num = strtol(tag_num, NULL, 10);
-		if (errno != 0) {
-			LOG_ERROR("Error parsing tag number from %s", tag_num);
-			return -1;
-		}
-
-		if ((ret = add_tag(sma, num, tag, tag_name)) < 0) {
-			return ret;
+static Smadata2plus::Device *getDevice(std::vector<Smadata2plus::Device> &devices, uint32_t serial) {
+	for (Smadata2plus::Device& device : devices) {
+		if (device.serial == serial) {
+			return &device;
 		}
 	}
 
-	if (ferror(file)) {
-		LOG_ERROR("Error reading tag file: %s", strerror(errno));
-		fclose(file);
-		return -1;
-	}
-
-	fclose(file);
-	return 0;
+	return nullptr;
 }
 
-static void reset_transaction_cntr(uint16_t *pkt_cnt)
-{
-	*pkt_cnt = 0x8000;
-}
-
-static void inc_transaction_cntr(smadata2plus_t *sma)
-{
-	if ((sma->transaction_cntr < 0x8000) || (sma->transaction_cntr == 0xffff)) {
-		sma->transaction_cntr = 0x8000;
-	} else {
-		sma->transaction_cntr++;
-	}
-}
-
-static device_t *get_device(device_t *devices, int device_num, uint32_t serial)
-{
-	for (int i = 0; i < device_num; i++) {
-		if (devices[i].serial == serial) {
-			return &devices[i];
-		}
-	}
-
-	return 0;
-}
-
-static int serial_to_mac(uint8_t *mac, device_t *devices, int device_num, uint32_t serial)
-{
-	for (int i = 0; i < device_num; i++) {
-		if (devices[i].serial == serial) {
-			memcpy(mac, devices[i].mac, 6);
+static int serialToMac(const std::vector<Smadata2plus::Device> &devices, char *mac, uint32_t serial) {
+	for (const Smadata2plus::Device &device : devices) {
+		if (device.serial == serial) {
+			memcpy(mac, device.mac, 6);
 			return 0;
 		}
 	}
+
 	return -1;
 }
 
-static int connect_bluetooth(smadata2plus_t *sma)
-{
-	if (smabluetooth_connect(sma->sma) < 0) {
-		return -1;
-	}
-
-	return 0;
-}
-
-static int smadata2plus_write_replay(smadata2plus_t *sma,
-		smadata2plus_packet_t *packet, uint16_t transaction_cntr)
+int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 {
 	uint8_t buf[511 + HEADER_SIZE];
 	uint8_t size = HEADER_SIZE;
-	uint8_t mac_dst[6];
+	char mac_dst[6];
 
 	assert(packet->len + HEADER_SIZE <= sizeof(buf));
 	assert(packet->len % 4 == 0);
@@ -416,7 +435,7 @@ static int smadata2plus_write_replay(smadata2plus_t *sma,
 		buf[3] = 0xff;
 		memcpy(mac_dst, MAC_BROADCAST, 6);
 	} else {
-		if (serial_to_mac(mac_dst, sma->devices, sma->device_num, packet->dst)
+		if (serialToMac(devices, mac_dst, packet->dst)
 				< 0) {
 			LOG_ERROR("device: %d not in device list!", packet->dst);
 			return -1;
@@ -446,37 +465,35 @@ static int smadata2plus_write_replay(smadata2plus_t *sma,
 
 	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
 
-	return smanet_write(sma->smanet, buf, size + packet->len, mac_dst);
+	return smanet->write(buf, size + packet->len, mac_dst);
 }
 
-static void begin_transaction(smadata2plus_t *sma)
-{
-	assert(sma->transaction_active == false);
-	sma->transaction_active = true;
+//static void begin_transaction(smadata2plus_t *sma)
+//{
+//	assert(sma->transaction_active == false);
+//	sma->transaction_active = true;
+//}
+//
+//static void end_transaction(smadata2plus_t *sma)
+//{
+//	assert(sma->transaction_active == true);
+//	sma->transaction_active = false;
+//	inc_transaction_cntr(sma);
+//}
+
+int Smadata2plus::write(const Packet *packet) {
+	return writeReplay(packet, transaction_cntr);
 }
 
-static void end_transaction(smadata2plus_t *sma)
-{
-	assert(sma->transaction_active == true);
-	sma->transaction_active = false;
-	inc_transaction_cntr(sma);
-}
-
-static int smadata2plus_write(smadata2plus_t *sma, smadata2plus_packet_t *packet)
-{
-	return smadata2plus_write_replay(sma, packet, sma->transaction_cntr);
-}
-
-
-static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
-{
+int Smadata2plus::read(Packet *packet) {
 	uint8_t buf[512 + HEADER_SIZE];
 	int size = HEADER_SIZE;
 	int len;
 
 	assert(packet->len <= 512);
 
-	len = smanet_read(sma->smanet, buf, packet->len + HEADER_SIZE, packet->src_mac);
+	std::string src(packet->src_mac);
+	len = smanet->read(buf, packet->len + HEADER_SIZE, src);
 	if (len < 0) {
 		LOG_ERROR("smanet_read failed.");
 		return -1;
@@ -502,12 +519,8 @@ static int smadata2plus_read(smadata2plus_t *sma, smadata2plus_packet_t *packet)
 /*
  * Request a channel.
  */
-static int request_channel(smadata2plus_t *sma,
-                           uint16_t channel,
-                           uint32_t from_idx,
-                           uint32_t to_idx)
-{
-	smadata2plus_packet_t packet;
+int Smadata2plus::requestChannel( uint16_t channel, uint32_t fromIdx, uint32_t toIdx) {
+	Packet packet;
 	uint8_t buf[12];
 	int ret;
 
@@ -525,33 +538,32 @@ static int request_channel(smadata2plus_t *sma,
 	buf[1] = 0x02;
 
 	byte_store_u16_little(&buf[2], channel);
-	byte_store_u32_little(&buf[4], from_idx);
-	byte_store_u32_little(&buf[8], to_idx);
+	byte_store_u32_little(&buf[4], fromIdx);
+	byte_store_u32_little(&buf[8], toIdx);
 
-	ret = smadata2plus_write(sma, &packet);
-	inc_transaction_cntr(sma);
+	ret = write(&packet);
+	//inc_transaction_cntr();
 
 	return ret;
 }
 
-static int read_records(smadata2plus_t *sma,
-                        uint16_t object,
-                        uint32_t from_idx,
-                        uint32_t to_idx,
-                        record_t *records,
-                        int *len,
-                        record_type_t type)
+int Smadata2plus::readRecords(uint16_t object,
+                              uint32_t from_idx,
+                              uint32_t to_idx,
+                              Record *records,
+                              int *len,
+                              RecordType type)
 {
 	int ret = 0;
-	smadata2plus_packet_t packet;
+	Packet packet;
 	uint8_t data[512];
 
 
-	begin_transaction(sma);
+	//begin_transaction(sma);
 
-	if ((ret = request_channel(sma, object, from_idx, to_idx)) < 0) {
+	if ((ret = requestChannel(object, from_idx, to_idx)) < 0) {
 		LOG_ERROR("Failed requesting %04X %04X % 04X", object, from_idx, to_idx);
-		end_transaction(sma);
+		//end_transaction(sma);
 		return ret;
 	}
 
@@ -559,14 +571,14 @@ static int read_records(smadata2plus_t *sma,
 	packet.data = data;
 	packet.len = sizeof(data);
 
-	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
-		end_transaction(sma);
+	if ((ret = read(&packet)) < 0) {
+		//end_transaction(sma);
 		return ret;
 	}
 
-	end_transaction(sma);
+	//end_transaction(sma);
 
-	if ((ret = parse_channel_records(data, packet.len, records, len, type, object)) < 0) {
+	if ((ret = parseChannelRecords(data, packet.len, records, len, type, object)) < 0) {
 		LOG_ERROR("Error parsing record of %04X %04X % 04X", object, from_idx, to_idx);
 		return ret;
 	}
@@ -574,36 +586,23 @@ static int read_records(smadata2plus_t *sma,
 	return 0;
 }
 
-static void add_device(smadata2plus_t *sma, uint32_t serial, uint8_t *mac)
-{
-	device_t *devices;
-
-	devices = realloc(sma->devices, sizeof(*devices) * (sma->device_num + 1));
-	if (devices == NULL) {
-		LOG_ERROR("realloc failed with %X bytes: %s", sizeof(*devices) * sma->device_num, strerror(
-		        errno));
-		exit(EXIT_FAILURE);
-	}
-	devices[sma->device_num].serial = serial;
-	memcpy(devices[sma->device_num].mac, mac, 6);
-
-	sma->devices = devices;
-	sma->device_num++;
+void Smadata2plus::addDevice(uint32_t serial, char *mac) {
+	devices.emplace_back(serial, mac, false);
 }
 
 /*
  * This is done ones to start connection.
  * This packet does not get a response from inverters.
  */
-static int reset_devices(smadata2plus_t *sma)
-{
-	return request_channel(sma, 0, 0, 0);
-}
+//static int reset_devices(smadata2plus_t *sma)
+//{
+//	return request_channel(sma, 0, 0, 0);
+//}
 
-static int logout(smadata2plus_t *sma)
-{
-	smadata2plus_packet_t packet;
+int Smadata2plus::logout() {
+	Packet packet;
 	uint8_t buf[8];
+	int ret;
 
 	packet.ctrl = CTRL_MASTER;
 	packet.dst = ADDR_BROADCAST;
@@ -613,35 +612,29 @@ static int logout(smadata2plus_t *sma)
 	packet.packet_num = 0;
 	packet.start = true;
 
-	buf[0] = 0x0e;
-	buf[1] = 0x01;
-	buf[2] = 0xfd;
-	buf[3] = 0xff;
-	buf[4] = 0xff;
-	buf[5] = 0xff;
-	buf[6] = 0xff;
-	buf[7] = 0xff;
+	byte_store_u32_little(buf,     0xfffd0100);
+	byte_store_u32_little(buf + 4, 0xffffffff);
 
-	begin_transaction(sma);
-	int ret = smadata2plus_write(sma, &packet);
-	end_transaction(sma);
+	Transaction t(this);
+	if ((ret = write(&packet)) < 0) {
+		return ret;
+	}
 
-	return ret;
+	return 0;
 }
 
 
 /*
  * Find all devices in net and extract serial and mac.
  */
-static int discover_devices(smadata2plus_t *sma, int device_num)
+int Smadata2plus::discoverDevices(int device_num)
 {
-	smadata2plus_packet_t packet;
+	Packet packet;
 	uint8_t buf[52];
 
-	begin_transaction(sma);
+	Transaction t(this);
 
-	if (request_channel(sma, 0, 0, 0) < 0) {
-		end_transaction(sma);
+	if (requestChannel(0, 0, 0) < 0) {
 		return -1;
 	}
 
@@ -649,15 +642,12 @@ static int discover_devices(smadata2plus_t *sma, int device_num)
 		packet.data = buf;
 		packet.len = sizeof(buf);
 
-		if (smadata2plus_read(sma, &packet) < 0) {
-			end_transaction(sma);
+		if (read(&packet) < 0) {
 			return -1;
 		}
 
-		add_device(sma, packet.src, packet.src_mac);
+		addDevice(packet.src, packet.src_mac);
 	}
-
-	end_transaction(sma);
 
 	return 0;
 }
@@ -665,9 +655,8 @@ static int discover_devices(smadata2plus_t *sma, int device_num)
 /*
  * Send password to all devices in network.
  */
-static int send_password(smadata2plus_t *sma, const char *password, user_type_t user)
-{
-	smadata2plus_packet_t packet;
+int Smadata2plus::sendPassword(const char *password, Smadata2plus::UserType user) {
+	Packet packet;
 	uint8_t buf[32];
 	int i = 0;
 	time_t cur_time;
@@ -682,10 +671,7 @@ static int send_password(smadata2plus_t *sma, const char *password, user_type_t 
 
 	memset(buf, 0x00, sizeof(buf));
 
-	buf[0] = 0x0c;
-	buf[1] = 0x04;
-	buf[2] = 0xfd;
-	buf[3] = 0xff;
+	byte_store_u32_little(buf, 0xfffd040c);
 	buf[4] = 0x07;
 
 	byte_store_u32_little(&buf[8], 40 * 365 * 24 * 60 * 60);
@@ -700,16 +686,16 @@ static int send_password(smadata2plus_t *sma, const char *password, user_type_t 
 		buf[20 + i] = password[i] ^ 0x88;
 	}
 
-	return smadata2plus_write(sma, &packet);
+	return write(&packet);
 }
 
 /*
  * Seems to be only needed for single inverter (netid 1)
  */
-int auth_acknowledge(smadata2plus_t *sma, uint32_t serial)
+int Smadata2plus::ackAuth(uint32_t serial)
 {
 	uint8_t buf[8];
-	smadata2plus_packet_t packet;
+	Packet packet;
 
 	memset(buf, 0x00, sizeof(buf));
 
@@ -721,13 +707,10 @@ int auth_acknowledge(smadata2plus_t *sma, uint32_t serial)
 	packet.packet_num  = 0;
 	packet.start = 1;
 
-	buf[0] = 0x0d;
-	buf[1] = 0x04;
-	buf[2] = 0xfd;
-	buf[3] = 0xff;
+	byte_store_u32_little(buf, 0xfffd040d);
 	buf[4] = 0x01;
 
-	return smadata2plus_write(sma, &packet);
+	return write(&packet);
 }
 
 /*
@@ -736,36 +719,34 @@ int auth_acknowledge(smadata2plus_t *sma, uint32_t serial)
  * (On multinverter connection password is missing in answer packet, everything else is exactly the same)
  * On netid 1 (single inverter we need 2 send a second packet!?
  */
-static int authenticate(smadata2plus_t *sma, const char *password, user_type_t user)
+int Smadata2plus::authenticate(const char *password, UserType user)
 {
 	uint8_t buf[52];
-	smadata2plus_packet_t packet;
+	Packet packet;
 
 	packet.data = buf;
 	packet.len = 52;
 
-	begin_transaction(sma);
+	Transaction t(this);
 
-	if (send_password(sma, password, user) < 0) {
+	if (sendPassword(password, user) < 0) {
 		LOG_ERROR("Failed sending password!");
-		end_transaction(sma);
 		return -1;
 	}
 
-	for (int j = 0; j < sma->device_num; j++) {
-		if (smadata2plus_read(sma, &packet) < 0) {
-			end_transaction(sma);
+	for (size_t j = 0; j < devices.size(); j++) {
+		if (read(&packet) < 0) {
 			return -1;
 		}
 
 		for (int i = 0; i < (i < 12) && (password[i] != '\0'); i++) {
-			device_t *device;
+			Device *device;
 
 			if ((buf[20 + i] ^ 0x88) != password[i]) {
 				LOG_INFO("Plant authentication error, serial: %d", packet.src);
 			}
 
-			device = get_device(sma->devices, sma->device_num, packet.src);
+			device = getDevice(devices, packet.src);
 			if (device == NULL) {
 				LOG_WARNING("Got authentication answer of non registered device: %d", packet.src);
 			}
@@ -773,55 +754,52 @@ static int authenticate(smadata2plus_t *sma, const char *password, user_type_t u
 		}
 	}
 
-	if (sma->device_num == 1) {
-		if (auth_acknowledge(sma, sma->devices[0].serial) < 0) {
-			end_transaction(sma);
+	if (devices.size() == 1) {
+		if (ackAuth(devices[0].serial) < 0) {
 			return -1;
 		}
 	}
 
-	end_transaction(sma);
-
 	return 0;
 }
 
-static smadata2plus_t *init(connection_t *con)
-{
-	smadata2plus_t *sma;
-	smabluetooth_t *smabluetooth;
-	smanet_t *smanet;
+//static smadata2plus_t *init(connection_t *con)
+//{
+//	smadata2plus_t *sma;
+//	smabluetooth_t *smabluetooth;
+//	smanet_t *smanet;
+//
+//	smabluetooth = smabluetooth_init(con);
+//	if (smabluetooth == NULL) return NULL;
+//
+//	smanet = smanet_init(PROTOCOL, NULL, smabluetooth);
+//	if (smanet == NULL) return NULL;
+//
+//	sma = calloc(1, sizeof(*sma));
+//
+//	sma->con = con;
+//	sma->sma = smabluetooth;
+//	sma->smanet = smanet;
+//	sma->tags = NULL;
+//
+//	sma->transaction_active = false;
+//	reset_transaction_cntr(&sma->transaction_cntr);
+//
+//	return sma;
+//}
+//
+//void smadata2plus_close(protocol_t *protocol)
+//{
+//	smadata2plus_t *sma = protocol->handle;
+//	smabluetooth_close(sma->sma);
+//	smanet_close(sma->smanet);
+//
+//	free(sma);
+//	free(protocol);
+//}
 
-	smabluetooth = smabluetooth_init(con);
-	if (smabluetooth == NULL) return NULL;
-
-	smanet = smanet_init(PROTOCOL, NULL, smabluetooth);
-	if (smanet == NULL) return NULL;
-
-	sma = calloc(1, sizeof(*sma));
-
-	sma->con = con;
-	sma->sma = smabluetooth;
-	sma->smanet = smanet;
-	sma->tags = NULL;
-
-	sma->transaction_active = false;
-	reset_transaction_cntr(&sma->transaction_cntr);
-
-	return sma;
-}
-
-void smadata2plus_close(protocol_t *protocol)
-{
-	smadata2plus_t *sma = protocol->handle;
-	smabluetooth_close(sma->sma);
-	smanet_close(sma->smanet);
-
-	free(sma);
-	free(protocol);
-}
-
-static int sync_time(smadata2plus_t *sma) {
-	smadata2plus_packet_t packet;
+int Smadata2plus::syncTime() {
+	Packet packet;
 	uint8_t buf[40];
 	int ret;
 
@@ -844,19 +822,19 @@ static int sync_time(smadata2plus_t *sma) {
 	byte_store_u32_little(buf + 28, 1);
 	byte_store_u32_little(buf + 32, 1);
 
-	begin_transaction(sma);
-	if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+	Transaction t(this);
+	if ((ret = write(&packet)) < 0) {
 		LOG_ERROR("Error reading inverter date!");
-		end_transaction(sma);
+		//end_transaction(sma);
 		return ret;
 	}
 
-	end_transaction(sma);
+	t.end();
 
 	//This packet is not an replay
 	//It's transaction counter is completely different
 	//and the reply flag is not set
-	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
+	if ((ret = read(&packet)) < 0) {
 		LOG_ERROR("smadata2plus_read failed!");
 		return ret;
 	}
@@ -884,7 +862,7 @@ static int sync_time(smadata2plus_t *sma) {
 	memset(buf, 0x00, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER | CTRL_UNKNOWN | CTRL_NO_BROADCAST;
-	packet.dst = sma->devices[0].serial;
+	packet.dst = devices[0].serial; //FIXME: destination!!!!!!
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = 8;
@@ -894,7 +872,7 @@ static int sync_time(smadata2plus_t *sma) {
 	byte_store_u32_little(buf, 0xf000020a);
 	byte_store_u32_little(buf + 4, 0x1);
 
-	if ((ret = smadata2plus_write_replay(sma, &packet, transaction_cntr)) < 0) {
+	if ((ret = writeReplay(&packet, transaction_cntr)) < 0) {
 		LOG_ERROR("Error writing time ack!");
 		return ret;
 	}
@@ -925,74 +903,70 @@ static int sync_time(smadata2plus_t *sma) {
 		packet.packet_num = 0;
 		packet.start = 1;
 
-		begin_transaction(sma);
-		if ((ret = smadata2plus_write(sma, &packet)) < 0) {
+		t.begin();
+		if ((ret = write(&packet)) < 0) {
 			LOG_ERROR("Error setting date!");
-			end_transaction(sma);
 			return ret;
 		}
-		end_transaction(sma);
+		t.end();
 	}
 
 	return 0;
 }
 
-int smadata2plus_connect(protocol_t *prot, const char *password, const void *param)
+int Smadata2plus::connect(const char *password, const void *param)
 {
-	smadata2plus_t *sma;
-	int device_num;
+	int deviceNum;
 	int ret;
 	int cnt = 0;
 
-	sma = (smadata2plus_t*)prot->handle;
-
-	if ((ret = connect_bluetooth(sma)) < 0) {
+	if ((ret = sma->connect()) < 0) {
 	    LOG_ERROR("Connecting bluetooth failed!");
 	    return ret;
 	}
 
-	device_num = smabluetooth_device_num(sma->sma);
-	LOG_INFO("%d devices!", device_num);
+	deviceNum = sma->getDeviceNum();
+	LOG_INFO("%d devices!", deviceNum);
 
-	if ((ret = logout(sma)) < 0) {
+	if ((ret = logout()) < 0) {
 		return ret;
 	}
 
 	do {
-		ret = discover_devices(sma, device_num);
+		ret = discoverDevices(deviceNum);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Device discover failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Device discover failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 	cnt = 0;
 
 	do {
-		ret = authenticate(sma, password, PASSWORD_USER);
+		ret = authenticate(password, PASSWORD_USER);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Authentication  failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Authentication failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 	cnt = 0;
 
 	do {
-		ret = sync_time(sma);
+		ret = syncTime();
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Sync time failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Sync time failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 	cnt = 0;
@@ -1001,15 +975,15 @@ int smadata2plus_connect(protocol_t *prot, const char *password, const void *par
 	return 0;
 }
 
-static inline int32_t convert_ac_power(uint32_t value) {
-	if (value != PVLIB_INVALID_S32) {
+static inline int32_t convertAcPower(uint32_t value) {
+	if ((int32_t)value != PVLIB_INVALID_S32) {
 		return (int32_t)value;
 	} else {
 		return PVLIB_INVALID_S32;
 	}
 }
 
-static inline int32_t convert_ac_voltage(uint32_t value) {
+static inline int32_t convertAcVoltage(uint32_t value) {
 	if (value != PVLIB_INVALID_U32) {
 		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
 	} else {
@@ -1017,7 +991,7 @@ static inline int32_t convert_ac_voltage(uint32_t value) {
 	}
 }
 
-static inline int32_t convert_ac_current(uint32_t value) {
+static inline int32_t convertAcCurrent(uint32_t value) {
 	if (value != PVLIB_INVALID_U32) {
 		return (int32_t)value * 1000 / CURRENT_DIVISOR;
 	} else {
@@ -1025,7 +999,7 @@ static inline int32_t convert_ac_current(uint32_t value) {
 	}
 }
 
-static inline int32_t convert_frequency(uint32_t value) {
+static inline int32_t convertFrequency(uint32_t value) {
 	if (value != PVLIB_INVALID_U32) {
 		return value * 1000 / FREQUENCY_DIVISOR;
 	} else {
@@ -1033,38 +1007,37 @@ static inline int32_t convert_frequency(uint32_t value) {
 	}
 }
 
-static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
+int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 {
-	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[20];
+	Record records[20];
 	int num_recs = 20;
 
 	pvlib_init_ac(ac);
 
 	do {
-		ret = read_records(sma, 0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
+		ret = readRecords(0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading dc spot data  failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Reading dc spot data failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 
-	ac->num_phases = 3;
+	ac->phaseNum = 3;
 	for (int i = 0; i < num_recs; i++) {
-		record_t *r = &records[i];
+		Record *r = &records[i];
 
 		uint32_t value = r->record.r1.value2;
 		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
 
 		switch(r->header.idx) {
 		case TOTAL_POWER:
-			ac->current_power = convert_ac_power(value);
+			ac->totalPower = convertAcPower(value);
 			break;
 		case MAX_PHASE1:
 			break;
@@ -1079,34 +1052,34 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 			LOG_DEBUG("UNKNOWN_2, %d", value);
 			break;
 		case POWER_PHASE1:
-			ac->power[0] = convert_ac_power(value);
+			ac->power[0] = convertAcPower(value);
 			break;
 		case POWER_PHASE2:
-			ac->power[1] = convert_ac_power(value);;
+			ac->power[1] = convertAcPower(value);;
 			break;
 		case POWER_PHASE3:
-			ac->power[2] = convert_ac_power(value);;
+			ac->power[2] = convertAcPower(value);;
 			break;
 		case VOLTAGE_PHASE1:
-			ac->voltage[0] = convert_ac_voltage(value);
+			ac->voltage[0] = convertAcVoltage(value);
 			break;
 		case VOLTAGE_PHASE2:
-			ac->voltage[1] = convert_ac_voltage(value);;
+			ac->voltage[1] = convertAcVoltage(value);;
 			break;
 		case VOLTAGE_PHASE3:
-			ac->voltage[2] =  convert_ac_voltage(value);
+			ac->voltage[2] =  convertAcVoltage(value);
 			break;
 		case CURRENT_PHASE1:
-			ac->current[0] = convert_ac_current(value);
+			ac->current[0] = convertAcCurrent(value);
 			break;
 		case CURRENT_PHASE2:
-			ac->current[1] = convert_ac_current(value);
+			ac->current[1] = convertAcCurrent(value);
 			break;
 		case CURRENT_PHASE3:
-			ac->current[2] = convert_ac_current(value);
+			ac->current[2] = convertAcCurrent(value);
 			break;
 		case FREQUENCE:
-			ac->frequency = convert_frequency(value);
+			ac->frequency = convertFrequency(value);
 			break;
 		default:
 			break;
@@ -1117,15 +1090,15 @@ static int get_ac(protocol_t *prot, uint32_t id, pvlib_ac_t *ac)
 }
 
 int32_t convert_dc_power(uint32_t value) {
-	if (value != PVLIB_INVALID_S32) {
+	if ((int32_t)value != PVLIB_INVALID_S32) {
 		return (int32_t)value;
 	} else {
-		return PVLIB_INVALID_U32;
+		return PVLIB_INVALID_S32;
 	}
 }
 
 int32_t convert_dc_voltage(uint32_t value) {
-	if (value != PVLIB_INVALID_S32) {
+	if ((int32_t)value != PVLIB_INVALID_S32) {
 		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
 	} else {
 		return PVLIB_INVALID_S32;
@@ -1133,7 +1106,7 @@ int32_t convert_dc_voltage(uint32_t value) {
 }
 
 int32_t convert_dc_current(uint32_t value) {
-	if (value != PVLIB_INVALID_S32) {
+	if ((int32_t)value != PVLIB_INVALID_S32) {
 		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
 	} else {
 		return PVLIB_INVALID_S32;
@@ -1141,32 +1114,31 @@ int32_t convert_dc_current(uint32_t value) {
 }
 
 
-static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
+int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 {
-	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[9];
+	Record records[9];
 	int num_recs = 9;
 
 	pvlib_init_dc(dc);
 
 	do {
-		ret = read_records(sma, 0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
+		ret = readRecords(0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading dc spot data  failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Reading dc spot data failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 
-	dc->num_lines = 0;
+	dc->trackerNum = 0;
 
 	for (int i = 0; i < num_recs; i++) {
-		record_t *r = &records[i];
+		Record *r = &records[i];
 		uint32_t value = r->record.r1.value2;
 
 		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
@@ -1177,8 +1149,8 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 			continue;
 		}
 
-		if (tracker > dc->num_lines) {
-			dc->num_lines = tracker;
+		if (tracker > dc->trackerNum) {
+			dc->trackerNum = tracker;
 		}
 
 		switch (r->header.idx) {
@@ -1196,18 +1168,18 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 		}
 	}
 
-	bool valid_power = false;
-	for (int i = 0; i < dc->num_lines; ++i) {
+	bool validPower = false;
+	for (int i = 0; i < dc->trackerNum; ++i) {
 		if (dc->power[i] != PVLIB_INVALID_S32) {
-			valid_power = true;
+			validPower = true;
 		}
 	}
 
-	if (valid_power) {
-		dc->current_power = 0;
-		for (int i = 0; i < dc->num_lines; ++i) {
+	if (validPower) {
+		dc->totalPower = 0;
+		for (int i = 0; i < dc->trackerNum; ++i) {
 			if (dc->power[i] != PVLIB_INVALID_S32) {
-				dc->current_power += dc->power[i];
+				dc->totalPower += dc->power[i];
 			}
 		}
 	}
@@ -1215,7 +1187,7 @@ static int get_dc(protocol_t *prot, uint32_t id, pvlib_dc_t *dc)
 	return 0;
 }
 
-int64_t convert_stats_value(uint64_t value) {
+int64_t convertStatsValue(uint64_t value) {
 	if (value != PVLIB_INVALID_U64) {
 		return (int64_t)value * 1000 / VOLTAGE_DIVISOR;
 	} else {
@@ -1223,47 +1195,45 @@ int64_t convert_stats_value(uint64_t value) {
 	}
 }
 
-static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
-{
-	smadata2plus_t *sma = prot->handle;;
+int Smadata2plus::readStats(uint32_t id, pvlib_stats *stats) {
 	int ret;
 	int cnt = 0;
-	record_t records[4];
+	Record records[4];
 	int num_recs = 4;
 
 	pvlib_init_stats(stats);
 
 	do {
-		ret = read_records(sma, 0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
+		ret = readRecords(0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading stats  failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Reading stats failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 
 	for (int i = 0; i < num_recs; i++) {
-		record_t *r = &records[i];
+		Record *r = &records[i];
 
 		int64_t value = (int64_t)r->record.r2.value;
 
-		LOG_DEBUG("Read stats: idx %x value: %"PRIu64, r->header.idx, value);
+		LOG_DEBUG("Read stats: idx %x value: %" PRIu64, r->header.idx, value);
 
 		switch (r->header.idx) {
 		case STAT_TOTAL_YIELD:
-			stats->total_yield = convert_stats_value(value);
+			stats->totalYield = convertStatsValue(value);
 			break;
 		case STAT_DAY_YIELD:
-			stats->day_yield = convert_stats_value(value);
+			stats->dayYield = convertStatsValue(value);
 			break;
 		case STAT_OPERATION_TIME:
-			stats->operation_time = convert_stats_value(value);
+			stats->operationTime = convertStatsValue(value);
 			break;
 		case STAT_FEED_IN_TIME:
-			stats->feed_in_time = convert_stats_value(value);
+			stats->feedInTime = convertStatsValue(value);
 			break;
 		default:
 			break;
@@ -1273,23 +1243,22 @@ static int get_stats(protocol_t *prot, uint32_t id, pvlib_stats_t *stats)
 	return 0;
 }
 
-static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
+int Smadata2plus::readStatus(uint32_t id, pvlib_status *status)
 {
-	smadata2plus_t *sma = prot->handle;
 	int ret;
 	int cnt = 0;
-	record_t records[1];
+	Record records[1];
 	int num_recs = 1;
 
 	do {
-		ret = read_records(sma, 0x5180, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
+		ret = readRecords(0x5180, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading inverter status  failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Reading inverter status failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 
@@ -1297,23 +1266,23 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 	status->status = PVLIB_STATUS_UNKNOWN;
 
 	for (int i = 0; i < num_recs; i++) {
-		record_t *r = &records[i];
+		Record *r = &records[i];
 		uint8_t *d = r->record.r3.data;
 
 		switch(r->header.idx) {
 		case DEVICE_STATUS: {
-			attribute_t attributes[8];
+			Attribute attributes[8];
 			int num_attributes = 8;
-			parse_attributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
+			parseAttributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
 					status->number = attributes[i].attribute;
 					switch (status->number) {
-					case 307: status->status = PVLIB_STATUS_OK; break;
-					case 35: status->status = PVLIB_STATUS_ERROR; break;
-					case 303: status->status = PVLIB_STATUS_OFF; break;
+					case 307: status->status = PVLIB_STATUS_OK;      break;
+					case 35:  status->status = PVLIB_STATUS_ERROR;   break;
+					case 303: status->status = PVLIB_STATUS_OFF;     break;
 					case 455: status->status = PVLIB_STATUS_WARNING; break;
-					default: status->status = PVLIB_STATUS_UNKNOWN; break;
+					default:  status->status = PVLIB_STATUS_UNKNOWN; break;
 					}
 				}
 			}
@@ -1330,7 +1299,7 @@ static int get_status(protocol_t* prot, uint32_t id, pvlib_status_t *status)
 }
 
 //version needs to be 10 at least 10 bytes
-static int parse_firmware_version(uint8_t *data, char *version)
+static int parseFirmwareVersion(uint8_t *data, char *version)
 {
 	//firmware version is stored from byte 16 + to 19
 
@@ -1356,23 +1325,22 @@ static int parse_firmware_version(uint8_t *data, char *version)
 	return 0;
 }
 
-static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_t *inverter_info)
+int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_info)
 {
-	smadata2plus_t *sma = prot->handle;;
 	int ret;
 	int cnt = 0;
-	record_t records[10];
+	Record records[10];
 	int num_recs = 10;
 
 	do {
-		ret = read_records(sma, 0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
+		ret = readRecords(0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading inverter info  failed!");
 			return ret;
 		} else if (ret < 0){
 			LOG_WARNING("Reading inverter info failed! Retrying ...");
 			cnt++;
-			thread_sleep(1000 * cnt);
+			sleep_for(seconds(cnt * 1000));
 		}
 	} while (ret < 0);
 
@@ -1380,7 +1348,7 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 	strcpy(inverter_info->manufacture, "SMA");
 
 	for (int i = 0; i < num_recs; i++) {
-		record_t *r = &records[i];
+		Record *r = &records[i];
 		uint8_t * d = r->record.r3.data;
 
 		switch (r->header.idx) {
@@ -1391,9 +1359,9 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 			strncpy(inverter_info->name, (const char*)d, 32);
 			break;
 		case DEVICE_CLASS: {
-			attribute_t attributes[8];
+			Attribute attributes[8];
 			int num_attributes = 8;
-			parse_attributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
+			parseAttributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
 					LOG_DEBUG("Device class: %d", attributes[i].attribute);
@@ -1402,9 +1370,9 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 			break;
 		}
 		case DEVICE_TYPE: {
-			attribute_t attributes[8];
+			Attribute attributes[8];
 			int num_attributes = 8;
-			parse_attributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
+			parseAttributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
 					LOG_DEBUG("Device type: %d", attributes[i].attribute);
@@ -1417,7 +1385,7 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 		case DEVICE_UNKNOWN:
 			break;
 		case DEVICE_SWVER:
-			if (parse_firmware_version(d, inverter_info->firmware_version) < 0) {
+			if (parseFirmwareVersion(d, inverter_info->firmware_version) < 0) {
 				LOG_WARNING("Invalid firmware format. Ignoring it!");
 			}
 			break;
@@ -1429,128 +1397,122 @@ static int get_inverter_info(protocol_t* prot, uint32_t id, pvlib_inverter_info_
 	return 0;
 }
 
-static int smadata2plus_device_num(protocol_t *prot)
+int Smadata2plus::inverterNum()
 {
-	smadata2plus_t *sma;
-
-	sma = (smadata2plus_t*) prot->handle;
-	return sma->device_num;
+	return device_num;
 }
 
-static int smadata2plus_get_devices(protocol_t *prot, uint32_t* ids, int max_num)
+int Smadata2plus::getDevices(uint32_t* ids, int max_num)
 {
-	smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
-
-	for (int i = 0; i < max_num && i < sma->device_num; i++) {
-		ids[i] = sma->devices[i].serial;
+	for (int i = 0; i < max_num && i < device_num; i++) {
+		ids[i] = devices[i].serial;
 	}
 
 	return 0;
 }
 
-int smadata2plus_read_channel(smadata2plus_t *sma, uint16_t channel, uint32_t idx1, uint32_t idx2)
-{
-	int ret;
-	smadata2plus_packet_t packet;
-	uint8_t data[512];
+//int Smadata2plus::readChannel(uint16_t channel, uint32_t idx1, uint32_t idx2)
+//{
+//	int ret;
+//	smadata2plus_packet_t packet;
+//	uint8_t data[512];
+//
+//	if ((ret = request_channel(channel, idx1, idx2)) < 0) {
+//		return ret;
+//	}
+//
+//	memset(&packet, 0x00, sizeof(packet));
+//	packet.data = data;
+//	packet.len = sizeof(data);
+//
+//	if ((ret = read(&packet)) < 0) {
+//		return ret;
+//	}
+//
+//	printf("\n\n\n");
+//	for (int i = 0; i < packet.len; i++) {
+//		printf("%02x ", packet.data[i]);
+//		if ((i + 1) % 20 == 0) {
+//			printf("\n");
+//		}
+//	}
+//	printf("\n");
+//	for (int i = 0; i < packet.len; i++) {
+//		if (packet.data[i] >= 20)
+//			printf("%c  ", packet.data[i]);
+//		else
+//			printf("   ");
+//		if ((i + 1) % 20 == 0) {
+//			printf("\n");
+//		}
+//	}
+//	printf("\n\n\n");
+//
+//	return 0;
+//}
 
-	if ((ret = request_channel(sma, channel, idx1, idx2)) < 0) {
-		return ret;
-	}
-
-	memset(&packet, 0x00, sizeof(packet));
-	packet.data = data;
-	packet.len = sizeof(data);
-
-	if ((ret = smadata2plus_read(sma, &packet)) < 0) {
-		return ret;
-	}
-
-	printf("\n\n\n");
-	for (int i = 0; i < packet.len; i++) {
-		printf("%02x ", packet.data[i]);
-		if ((i + 1) % 20 == 0) {
-			printf("\n");
-		}
-	}
-	printf("\n");
-	for (int i = 0; i < packet.len; i++) {
-		if (packet.data[i] >= 20)
-			printf("%c  ", packet.data[i]);
-		else
-			printf("   ");
-		if ((i + 1) % 20 == 0) {
-			printf("\n");
-		}
-	}
-	printf("\n\n\n");
-
-	return 0;
+void Smadata2plus::disconnect() {
+	sma->disconnect();
 }
 
-static void disconnect(protocol_t *prot) {
-	smadata2plus_t *sma = (smadata2plus_t*) prot->handle;
-	smabluetooth_disconnect(sma->sma);
+//int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params) {
+//	smadata2plus_t *sma;
+//	int ret;
+//
+//	sma = init(con);
+//
+//	if (sma == NULL)
+//		return -1;
+//
+//	FILE *tag_file = NULL;
+//	size_t file_length = strlen("en_US_tags.txt");
+//	char tag_path[strlen(resources_path()) + 1 + file_length + 1];
+//	if (params != NULL && strlen(params) == 5) {
+//		;
+//		strcpy(tag_path, resources_path());
+//		strcat(tag_path, params);
+//		strcat(tag_path, "_tags.txt");
+//
+//		tag_file = fopen(tag_path, "r");
+//		if (tag_file == NULL) {
+//			LOG_ERROR("tag file for local %s doesn't exist.", params);
+//		}
+//	}
+//
+//	if (tag_file == NULL) {
+//		strcpy(tag_path, resources_path());
+//		strcat(tag_path, "en_US_tags.txt");
+//		tag_file = fopen(tag_path, "r");
+//	}
+//
+//	if (tag_file == NULL) {
+//		LOG_ERROR("tag file  %s doesn't exist.", tag_path);
+//		return -1;
+//	}
+//
+//	//params only contains filename to tag file
+//	if ((ret = read_tags(sma, tag_file)) < 0) {
+//		return ret;
+//	}
+//
+//	prot->handle = sma;
+//	prot->inverter_num = smadata2plus_device_num;
+//	prot->get_devices = smadata2plus_get_devices;
+//	prot->connect = smadata2plus_connect;
+//	prot->disconnect = disconnect;
+//	prot->get_stats = get_stats;
+//	prot->get_ac = get_ac;
+//	prot->get_dc = get_dc;
+//	prot->get_status = get_status;
+//	prot->close = smadata2plus_close;
+//	prot->get_inverter_info = get_inverter_info;
+//
+//	return 0;
+//}
+
+static Protocol *createSmadata2plus() {
+	return new Smadata2plus();
 }
 
-int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params) {
-	smadata2plus_t *sma;
-	int ret;
-
-	sma = init(con);
-
-	if (sma == NULL)
-		return -1;
-
-	FILE *tag_file = NULL;
-	size_t file_length = strlen("en_US_tags.txt");
-	char tag_path[strlen(resources_path()) + 1 + file_length + 1];
-	if (params != NULL && strlen(params) == 5) {
-		;
-		strcpy(tag_path, resources_path());
-		strcat(tag_path, params);
-		strcat(tag_path, "_tags.txt");
-
-		tag_file = fopen(tag_path, "r");
-		if (tag_file == NULL) {
-			LOG_ERROR("tag file for local %s doesn't exist.", params);
-		}
-	}
-
-	if (tag_file == NULL) {
-		strcpy(tag_path, resources_path());
-		strcat(tag_path, "en_US_tags.txt");
-		tag_file = fopen(tag_path, "r");
-	}
-
-	if (tag_file == NULL) {
-		LOG_ERROR("tag file  %s doesn't exist.", tag_path);
-		return -1;
-	}
-
-	//params only contains filename to tag file
-	if ((ret = read_tags(sma, tag_file)) < 0) {
-		return ret;
-	}
-
-	prot->handle = sma;
-	prot->inverter_num = smadata2plus_device_num;
-	prot->get_devices = smadata2plus_get_devices;
-	prot->connect = smadata2plus_connect;
-	prot->disconnect = disconnect;
-	prot->get_stats = get_stats;
-	prot->get_ac = get_ac;
-	prot->get_dc = get_dc;
-	prot->get_status = get_status;
-	prot->close = smadata2plus_close;
-	prot->get_inverter_info = get_inverter_info;
-
-	return 0;
-}
-
-const protocol_info_t protocol_info_smadata2plus = {
-		"smadata2plus",
-		"pvlogdev",
-		"",
-        smadata2plus_open
-};
+extern const ProtocolInfo smadata2plusProtocolInfo;
+const ProtocolInfo smadata2plusProtocolInfo(createSmadata2plus, "smadata2plus", "pvlogdev,", "");

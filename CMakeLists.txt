@@ -7,7 +7,7 @@ set(${PROJECT_NAME}_MINOR_VERSION 0)
 set(${PROJECT_NAME}_PATCH_LEVEL 1)
 
 if (CMAKE_COMPILER_IS_GNUCC) 
-	    set(CMAKE_C_FLAGS "-std=c99 -Wall -pedantic")
+	    set(CMAKE_CXX_FLAGS "-std=c++11 -pthread -Wall -pedantic")
 endif (CMAKE_COMPILER_IS_GNUCC)
 
 #

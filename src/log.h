@@ -21,10 +21,10 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include <stdint.h>
-#include <stdio.h>
+#include <cstdint>
+#include <cstdio>
 
-typedef enum {
+enum LogSeverity {
 	LOG_DISABLE = 0,
 	LOG_ERROR = 1,
 	LOG_WARNING = 2,
@@ -32,15 +32,15 @@ typedef enum {
 	LOG_DEBUG = 8,
 	LOG_TRACE = 16,
 	LOG_ALL = (int) (-1)
-} log_severity_t;
+} ;
 
 void log_enable(FILE *file, int severity);
 
 void log_disable();
 
-void log_log(log_severity_t severity, const char *file, int line, const char *format, ...);
+void log_log(LogSeverity severity, const char *file, int line, const char *format, ...);
 
-void log_hex(log_severity_t severity,
+void log_hex(LogSeverity severity,
              const char *file,
              int line,
              const char *message,

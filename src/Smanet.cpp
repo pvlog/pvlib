@@ -21,20 +21,18 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <Smanet.h>
 
-#include "smanet.h"
 #include "log.h"
 
-#define ACCM 0x000E0000
-#define HDLC_ESC 0x7d
-#define HDLC_SYNC 0x7e
+static const uint32_t ACCM = 0x000E0000;
+static const uint8_t HDLC_ESC  = 0x7d;
+static const uint8_t HDLC_SYNC = 0x7e;
 
-#define PPPINITFCS16 0xffff
-#define PPPGOODFCS16 0xf0b8
+static const uint16_t PPPINITFCS16 = 0xffff;
+static const uint16_t PPPGOODFCS16 = 0xf0b8;
 
-#define FRAME_SIZE (512 + 16)
-
-#define TIMEOUT 5000
+static const int FRAME_SIZE = 512 + 16;
 
 static const uint16_t fcstab[256] = { 0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536,
         0x74bf, 0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7, 0x1081, 0x0108,
@@ -61,17 +59,7 @@ static const uint16_t fcstab[256] = { 0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x
         0x0e70, 0x1ff9, 0xf78f, 0xe606, 0xd49d, 0xc514, 0xb1ab, 0xa022, 0x92b9, 0x8330, 0x7bc7,
         0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78 };
 
-#define BUF_SIZE 255
-struct smanet_s {
-	uint16_t protocol;
-	uint8_t smabluetooth;
-	connection_t *con;
-	smabluetooth_t *sma;
-	uint8_t read_buf[BUF_SIZE];
-	uint8_t size;
-};
-
-static uint16_t fcs_calc(uint16_t fcs, uint8_t* buf, int len)
+static uint16_t fcsCalc(uint16_t fcs, uint8_t* buf, int len)
 {
 	while (len--) {
 		fcs = (uint16_t)((fcs >> 8) ^ fcstab[(fcs ^ *buf++) & 0xff]);
@@ -79,52 +67,53 @@ static uint16_t fcs_calc(uint16_t fcs, uint8_t* buf, int len)
 	return fcs;
 }
 
-static int con_write(smanet_t *smanet, uint8_t *data, int len, const uint8_t *to)
-{
-	if (smanet->smabluetooth) {
-		smabluetooth_packet_t packet;
 
-		packet.data = data;
-		packet.len = len;
-		packet.cmd = 0x01;
-		memcpy(packet.mac_dst, to, 6);
+//int Smanet::write(uint8_t *data, int len, const char *to)
+//{
+//	if (smanet->smabluetooth) {
+//		smabluetooth_packet_t packet;
+//
+//		packet.data = data;
+//		packet.len = len;
+//		packet.cmd = 0x01;
+//		memcpy(packet.mac_dst, to, 6);
+//
+//		if (smabluetooth_write(smanet->sma, &packet) < 0) {
+//			LOG_ERROR("smabluetooth_write failed");
+//			return -1;
+//		}
+//	} else {
+//		if (connection_write(smanet->con, data, len) < 0) {
+//			LOG_ERROR("connection_write failed");
+//			return -1;
+//		}
+//	}
+//
+//	return 0;
+//}
+//
+//static int con_read(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
+//{
+//	if (smanet->smabluetooth) {
+//		smabluetooth_packet_t packet;
+//
+//		packet.data = data;
+//		packet.len = len;
+//
+//		if (smabluetooth_read(smanet->sma, &packet) < 0) {
+//			return -1;
+//		}
+//		if (from != NULL) {
+//			memcpy(from, packet.mac_src, 6);
+//		}
+//
+//		return packet.len;
+//	} else {
+//		return connection_read(smanet->con, data, len, TIMEOUT);
+//	}
+//}
 
-		if (smabluetooth_write(smanet->sma, &packet) < 0) {
-			LOG_ERROR("smabluetooth_write failed");
-			return -1;
-		}
-	} else {
-		if (connection_write(smanet->con, data, len) < 0) {
-			LOG_ERROR("connection_write failed");
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-static int con_read(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
-{
-	if (smanet->smabluetooth) {
-		smabluetooth_packet_t packet;
-
-		packet.data = data;
-		packet.len = len;
-
-		if (smabluetooth_read(smanet->sma, &packet) < 0) {
-			return -1;
-		}
-		if (from != NULL) {
-			memcpy(from, packet.mac_src, 6);
-		}
-
-		return packet.len;
-	} else {
-		return connection_read(smanet->con, data, len, TIMEOUT);
-	}
-}
-
-static int add_hdlc(uint8_t *in, uint8_t *out, uint8_t len)
+static int addHdlc(uint8_t *in, uint8_t *out, uint8_t len)
 {
 	uint16_t pos = 0;
 	uint8_t i;
@@ -150,66 +139,158 @@ static int add_hdlc(uint8_t *in, uint8_t *out, uint8_t len)
 	return pos;
 }
 
-static int validate_frame(uint8_t *frame, uint16_t len)
+static int validateFrame(uint8_t *frame, uint16_t len)
 {
 	if (len > FRAME_SIZE) {
 		return -1;
 	}
 
-	if (fcs_calc(PPPINITFCS16, frame, len) != PPPGOODFCS16) {
+	if (fcsCalc(PPPINITFCS16, frame, len) != PPPGOODFCS16) {
 		return -1;
 	}
 
 	return 0;
 }
 
-static int read_frame(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
+//int Smanet::readFrame(uint8_t *data, int len, char *from)
+//{
+//	uint8_t buf[FRAME_SIZE];
+//	uint16_t i = 0;
+//	uint16_t pos = 0;
+//	uint8_t sync = 0;
+//
+//	if (len <= 0) return 0;
+//
+//
+//	for (i = 0; (i < FRAME_SIZE) && !sync; i++) {
+//		// add last byte to new buffer, because it could be a HDLC_ESC
+//		if (((pos + 1 == size) && (read_buf[pos] != HDLC_SYNC)) || pos >= size) {
+//			if (pos >= size) {
+//				size = con->read(read_buf, BUF_SIZE, from);
+//				if (size < 0) return -1;
+//			} else {
+//				read_buf[0] = read_buf[size - 1];
+//				size = con->read(read_buf + 1, BUF_SIZE - 1, from);
+//				if (size < 0) return -1;
+//				size++;
+//			}
+//			pos = 0;
+//		}
+//
+//		switch (read_buf[pos]) {
+//		case HDLC_ESC:
+//			pos++;
+//			buf[i] = read_buf[pos++] ^ 0x20;
+//			break;
+//		case HDLC_SYNC:
+//			if (i == 0) {
+//				//remove all HDLC_SYNC bytes, because emtpy frames are allowed.
+//				while ((pos < size) && (read_buf[pos] == HDLC_SYNC))
+//					pos++;
+//				i--;
+//			} else {
+//				i--;
+//				size = size - pos;
+//				memmove(read_buf, read_buf + pos, size);
+//				sync = 1; //success
+//			}
+//			break;
+//		default:
+//			buf[i] = read_buf[pos++];
+//			break;
+//		}
+//	}
+//
+//	if (!sync) {
+//		LOG_ERROR("Failed: frame to big!");
+//		return -1;
+//	}
+//
+//	if (validateFrame(buf, i) < 0) {
+//		LOG_ERROR("Invalid frame!");
+//		return -1;
+//	}
+//
+//	if (i < 4) return -1;
+//
+//	i -= 6; // header (4 bytes) + FCS (2 bytes)
+//	len = (i < len) ? i : len;
+//
+//	memcpy(data, &buf[4], len);
+//	return len;
+//}
+
+//smanet_t *smanet_init(uint16_t protocol, connection_t *con, smabluetooth_t *sma)
+//{
+//	smanet_t *smanet;
+//
+//	assert((con == NULL && sma != NULL) || (con != NULL && sma == NULL));
+//
+//	smanet = malloc(sizeof(*smanet));
+//	if (con != NULL) {
+//		smanet->smabluetooth = 0;
+//		smanet->con = con;
+//	} else {
+//		smanet->smabluetooth = 1;
+//		smanet->sma = sma;
+//	}
+//
+//	smanet->protocol = protocol;
+//	smanet->size = 0;
+//
+//	return smanet;
+//}
+
+//void smanet_close(smanet_t *smanet)
+//{
+//	free(smanet);
+//}
+
+int Smanet::read(uint8_t *data, int len, std::string &from)
 {
 	uint8_t buf[FRAME_SIZE];
-	int size = 0;
 	uint16_t i = 0;
 	uint16_t pos = 0;
 	uint8_t sync = 0;
 
 	if (len <= 0) return 0;
 
-	size = smanet->size;
 
 	for (i = 0; (i < FRAME_SIZE) && !sync; i++) {
 		// add last byte to new buffer, because it could be a HDLC_ESC
-		if (((pos + 1 == size) && (smanet->read_buf[pos] != HDLC_SYNC)) || pos >= size) {
+		if (((pos + 1 == size) && (read_buf[pos] != HDLC_SYNC)) || pos >= size) {
 			if (pos >= size) {
-				size = con_read(smanet, smanet->read_buf, BUF_SIZE, from);
+				size = con->read(read_buf, BUF_SIZE, from);
 				if (size < 0) return -1;
 			} else {
-				smanet->read_buf[0] = smanet->read_buf[size - 1];
-				size = con_read(smanet, &smanet->read_buf[1], BUF_SIZE - 1, from);
+				read_buf[0] = read_buf[size - 1];
+				size = con->read(read_buf + 1, BUF_SIZE - 1, from);
 				if (size < 0) return -1;
 				size++;
 			}
 			pos = 0;
 		}
 
-		switch (smanet->read_buf[pos]) {
+		switch (read_buf[pos]) {
 		case HDLC_ESC:
 			pos++;
-			buf[i] = smanet->read_buf[pos++] ^ 0x20;
+			buf[i] = read_buf[pos++] ^ 0x20;
 			break;
 		case HDLC_SYNC:
 			if (i == 0) {
 				//remove all HDLC_SYNC bytes, because emtpy frames are allowed.
-				while ((pos < size) && (smanet->read_buf[pos] == HDLC_SYNC))
+				while ((pos < size) && (read_buf[pos] == HDLC_SYNC))
 					pos++;
 				i--;
 			} else {
 				i--;
-				smanet->size = size - pos;
-				memmove(smanet->read_buf, &smanet->read_buf[pos], smanet->size);
+				size = size - pos;
+				memmove(read_buf, read_buf + pos, size);
 				sync = 1; //success
 			}
 			break;
 		default:
-			buf[i] = smanet->read_buf[pos++];
+			buf[i] = read_buf[pos++];
 			break;
 		}
 	}
@@ -219,7 +300,7 @@ static int read_frame(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
 		return -1;
 	}
 
-	if (validate_frame(buf, i) < 0) {
+	if (validateFrame(buf, i) < 0) {
 		LOG_ERROR("Invalid frame!");
 		return -1;
 	}
@@ -233,38 +314,7 @@ static int read_frame(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
 	return len;
 }
 
-smanet_t *smanet_init(uint16_t protocol, connection_t *con, smabluetooth_t *sma)
-{
-	smanet_t *smanet;
-
-	assert((con == NULL && sma != NULL) || (con != NULL && sma == NULL));
-
-	smanet = malloc(sizeof(*smanet));
-	if (con != NULL) {
-		smanet->smabluetooth = 0;
-		smanet->con = con;
-	} else {
-		smanet->smabluetooth = 1;
-		smanet->sma = sma;
-	}
-
-	smanet->protocol = protocol;
-	smanet->size = 0;
-
-	return smanet;
-}
-
-void smanet_close(smanet_t *smanet)
-{
-	free(smanet);
-}
-
-int smanet_read(smanet_t *smanet, uint8_t *data, int len, uint8_t *from)
-{
-	return read_frame(smanet, data, len, from);
-}
-
-int smanet_write(smanet_t *smanet, uint8_t *data, int len, const uint8_t *to)
+int Smanet::write(uint8_t *data, int len, const std::string &to)
 {
 	uint8_t buf[FRAME_SIZE];
 	uint16_t fcs;
@@ -275,18 +325,18 @@ int smanet_write(smanet_t *smanet, uint8_t *data, int len, const uint8_t *to)
 	buf[pos++] = 0x7e;
 	buf[pos++] = 0xff;
 	buf[pos++] = 0x03;
-	buf[pos++] = smanet->protocol & 0xff;
-	buf[pos++] = (smanet->protocol >> 8) & 0xff;
+	buf[pos++] = protocol & 0xff;
+	buf[pos++] = (protocol >> 8) & 0xff;
 
-	fcs = fcs_calc(PPPINITFCS16, &buf[1], 4);
-	fcs = fcs_calc(fcs, data, len);
+	fcs = fcsCalc(PPPINITFCS16, &buf[1], 4);
+	fcs = fcsCalc(fcs, data, len);
 	fcs ^= 0xffff; /* complement */
 
-	pos += add_hdlc(data, &buf[5], len);
+	pos += addHdlc(data, &buf[5], len);
 
 	buf[pos++] = fcs & 0x00ff;
 	buf[pos++] = (fcs >> 8) & 0x00ff;
 	buf[pos++] = 0x7e;
 
-	return con_write(smanet, buf, pos, to);
+	return con->write(buf, pos, to);
 }

@@ -37,75 +37,75 @@ static const uint64_t PVLIB_INVALID_U64 = UINT64_MAX;
 static const uint32_t PVLIB_INVALID_U32 = UINT32_MAX;
 static const uint16_t PVLIB_INVALID_U16 = UINT16_MAX;
 
-typedef struct pvlib_plant_s pvlib_plant_t;
+typedef struct pvlib_plant pvlib_plant;
 
 enum {
 	PVLIB_UNSUPPORTED_CONNECTION, PVLIB_ERROR
 };
 
-typedef enum {
+typedef enum pvlib_connection {
 	PVLIB_RFCOMM
-} pvlib_connection_t;
+} pvlib_connection;
 
-typedef enum {
+typedef enum pvlib_protocol {
 	PVLIB_SMADATA2PLUS, PVLIB_SMADATA
-} pvlib_protocol_t;
+} pvlib_protocol;
 
-typedef struct pvlib_ac_s {
-	int32_t current_power; ///< current power of string inverter in watts
+typedef struct pvlib_ac {
+	int32_t totalPower; ///< current power of string inverter in watts
 
-	int32_t power[3]; ///< current power of phase in watss
+	int32_t power[3]; ///< current power of phase in watts
 	int32_t voltage[3]; ///< current voltage in millivolts
 	int32_t current[3]; ///< current current in milliampere
 
-	uint8_t num_phases; ///< number of output phases
+	int phaseNum; ///< number of output phases
 
-	int32_t frequency; ///< frequence in milliherz
-} pvlib_ac_t;
+	int32_t frequency; ///< frequency in milliherz
+} pvlib_ac;
 
-void pvlib_init_ac(pvlib_ac_t *ac);
+void pvlib_init_ac(pvlib_ac *ac);
 
-typedef struct pvlib_dc_s {
-	int32_t current_power; ///<current power in watts
+typedef struct pvlib_dc {
+	int32_t totalPower; ///<current power in watts
 
 	int32_t power[3]; ///<current power in watts
 	int32_t voltage[3]; ///<current voltage in millivolts
 	int32_t current[3]; ///<current current in milliampere
 
-	uint8_t num_lines; ///<number of input strings
-} pvlib_dc_t;
+	int trackerNum; ///<number of input strings
+} pvlib_dc;
 
-void pvlib_init_dc(pvlib_dc_t *dc);
+void pvlib_init_dc(pvlib_dc *dc);
 
-typedef struct pvlib_stats_s {
-	int64_t total_yield; ///<total produced power in  watt-hours
-	int64_t day_yield; ///<total produced power today in  watt-hours
+typedef struct pvlib_stats {
+	int64_t totalYield; ///<total produced power in  watt-hours
+	int64_t dayYield; ///<total produced power today in  watt-hours
 
-	int64_t operation_time; /// <operation time in seconds
-	int64_t feed_in_time; ///<feed in time in seconds
-} pvlib_stats_t;
+	int64_t operationTime; /// <operation time in seconds
+	int64_t feedInTime; ///<feed in time in seconds
+} pvlib_stats;
 
-void pvlib_init_stats(pvlib_stats_t *stats);
+void pvlib_init_stats(pvlib_stats *stats);
 
-typedef enum {
+typedef enum pvlib_status_value {
 	PVLIB_STATUS_OK,
 	PVLIB_STATUS_WARNING,
 	PVLIB_STATUS_ERROR,
 	PVLIB_STATUS_OFF,
 	PVLIB_STATUS_UNKNOWN
-}pvlib_status_value_t;
+}pvlib_status_value;
 
-typedef struct pvlib_status_s {
-	pvlib_status_value_t status;
+typedef struct pvlib_status {
+	pvlib_status_value status;
 	uint32_t number;
-} pvlib_status_t;
+} pvlib_status;
 
-typedef struct pvlib_inverter_info_s {
+typedef struct pvlib_inverter_info {
 	char manufacture[64];
 	char type[64];
 	char name[64];
 	char firmware_version[64];
-} pvlib_inverter_info_t;
+} pvlib_inverter_info;
 
 /**
  * Initialize pvlib.
@@ -182,10 +182,10 @@ const char *pvlib_protocol_name(uint32_t protocol);
  *
  * @return on error(invalid connection or protocol handle) NULL.
  */
-pvlib_plant_t *pvlib_open(uint32_t connection,
-                          uint32_t protocol,
-                          const void *connection_param,
-                          const void *protocol_param);
+pvlib_plant *pvlib_open(uint32_t connection,
+                        uint32_t protocol,
+                        const void *connection_param,
+                        const void *protocol_param);
 
 /**
  * Connect to plant/string_inverter
@@ -196,7 +196,7 @@ pvlib_plant_t *pvlib_open(uint32_t connection,
  * @param protocol_param protocol specific.
  *
  */
-int pvlib_connect(pvlib_plant_t *plant,
+int pvlib_connect(pvlib_plant *plant,
                   const char *address,
                   const char *passwd,
                   const void *connection_param,
@@ -205,7 +205,7 @@ int pvlib_connect(pvlib_plant_t *plant,
 /**
  * Disconnect plant/string_inverter.
  */
-void pvlib_disconnect(pvlib_plant_t *plant);
+void pvlib_disconnect(pvlib_plant *plant);
 
 /**
  * Close connection to plant or string inverter.
@@ -213,7 +213,7 @@ void pvlib_disconnect(pvlib_plant_t *plant);
  * @param pvlib pvlib_t handle
  * @param num
  */
-void pvlib_close(pvlib_plant_t *plant);
+void pvlib_close(pvlib_plant *plant);
 
 /**
  * Returns total number of stringinverter.
@@ -221,7 +221,7 @@ void pvlib_close(pvlib_plant_t *plant);
  * @param pvlib pvlib_t handle
  * @return number of string inverter.
  */
-int pvlib_num_string_inverter(pvlib_plant_t *plant);
+int pvlib_num_string_inverter(pvlib_plant *plant);
 
 /**
  * Returns string inverter handles.
@@ -232,7 +232,7 @@ int pvlib_num_string_inverter(pvlib_plant_t *plant);
  *        return value of pvlib_num_string_inverter should be used.
  *
  */
-int pvlib_device_handles(pvlib_plant_t *plant, uint32_t *ids, int max_devices);
+int pvlib_device_handles(pvlib_plant *plant, uint32_t *ids, int max_devices);
 
 /**
  * Get dc values from string converter.
@@ -241,7 +241,7 @@ int pvlib_device_handles(pvlib_plant_t *plant, uint32_t *ids, int max_devices);
  * @param[out] dc dc values
  * @param[out] id string inverter id
  */
-int pvlib_get_dc_values(pvlib_plant_t *plant, uint32_t id, pvlib_dc_t *dc);
+int pvlib_get_dc_values(pvlib_plant *plant, uint32_t id, pvlib_dc *dc);
 
 /**
  * Get dc values from string converter.
@@ -250,7 +250,7 @@ int pvlib_get_dc_values(pvlib_plant_t *plant, uint32_t id, pvlib_dc_t *dc);
  * @param[out] ac dc values
  * @param[out] id string inverterr id
  */
-int pvlib_get_ac_values(pvlib_plant_t *plant, uint32_t id, pvlib_ac_t *ac);
+int pvlib_get_ac_values(pvlib_plant *plant, uint32_t id, pvlib_ac *ac);
 
 /**
  * Get dc values from string converter.
@@ -259,7 +259,7 @@ int pvlib_get_ac_values(pvlib_plant_t *plant, uint32_t id, pvlib_ac_t *ac);
  * @param[out] stats statistics of string inverter
  * @param[out] id string converter id
  */
-int pvlib_get_stats(pvlib_plant_t *plant, uint32_t id, pvlib_stats_t *stats);
+int pvlib_get_stats(pvlib_plant *plant, uint32_t id, pvlib_stats *stats);
 
 /**
  * Get status from inverter
@@ -269,7 +269,7 @@ int pvlib_get_stats(pvlib_plant_t *plant, uint32_t id, pvlib_stats_t *stats);
  * @param[out] status inverter status
  * @return negative on failure 0 on success and good status and positive on success and bad status.
  */
-int pvlib_get_status(pvlib_plant_t *plant, uint32_t id, pvlib_status_t *status);
+int pvlib_get_status(pvlib_plant *plant, uint32_t id, pvlib_status *status);
 
 /**
  * Get inverter informations
@@ -279,15 +279,15 @@ int pvlib_get_status(pvlib_plant_t *plant, uint32_t id, pvlib_status_t *status);
  * @param[out] inveter_info inverter information
  * @return negative on failue 0 on success.
  */
-int pvlib_get_inverter_info(pvlib_plant_t *plant, uint32_t id, pvlib_inverter_info_t *inverter_info);
+int pvlib_get_inverter_info(pvlib_plant *plant, uint32_t id, pvlib_inverter_info *inverter_info);
 
-/**
- * Returns protocol handle.
- * This must not be supported by protocol, so NULL does not mean an error occured.
- *
- * @return protocol handle.
- */
-void *pvlib_protocol_handle(pvlib_plant_t *plant);
+///**
+// * Returns protocol handle.
+// * This must not be supported by protocol, so NULL does not mean an error occured.
+// *
+// * @return protocol handle.
+// */
+//void *pvlib_protocol_handle(pvlib_plant *plant);
 
 #if defined __cplusplus
 }
