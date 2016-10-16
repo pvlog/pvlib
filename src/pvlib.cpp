@@ -56,11 +56,11 @@ int pvlib_protocol_num(void) {
 }
 
 const char *pvlib_protocol_name(uint32_t handle) {
-	if (handle >= Connection::availableConnections.size()) {
+	if (handle >= Protocol::availableProtocols.size()) {
 		return NULL;
 	}
 
-	return Connection::availableConnections.at(handle)->name;
+	return Protocol::availableProtocols.at(handle)->name;
 }
 
 int pvlib_protocols(uint32_t *protocols, int max_protos) {
