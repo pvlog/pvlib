@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
 
     found = 0;
     for (i = 0; i < prot_num; i++) {
-        if (strcmp(pvlib_protocol_name(con_handles[i]), "smadata2plus") == 0) {
+        if (strcmp(pvlib_protocol_name(prot_handles[i]), "smadata2plus") == 0) {
             found = 1;
             break;
         }
