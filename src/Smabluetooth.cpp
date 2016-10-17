@@ -409,7 +409,7 @@ int Smabluetooth::readPacket(Packet *packet) {
 
 	*packet = packets.front(); packets.pop();
 
-	return 0;
+	return packet->len;
 }
 
 int Smabluetooth::read(uint8_t *data, int maxlen, std::string &from) {
