@@ -167,6 +167,7 @@ int Smabluetooth::cmd_04(const Packet *packet) {
 
 	mutex.lock();
 	signalStrength = packet->data[4] * 100 / 0xff;
+	events |= EVENT_SIGNAL_STRENGTH;
 	mutex.unlock();
 
 	event.notify_all();
@@ -302,7 +303,7 @@ int Smabluetooth::connect() {
 			return -1;
 		}
 
-		if (event.wait_for(lock, std::chrono::seconds(5000)) == std::cv_status::timeout) {
+		if (event.wait_for(lock, std::chrono::seconds(5)) == std::cv_status::timeout) {
 			LOG_ERROR("Connection timeout!");
 			quit.store(true);
 			thread.join();
@@ -448,7 +449,7 @@ int Smabluetooth::getSignalStrength(const uint8_t *mac)
 
 	lock.lock();
 	while (!(events & EVENT_SIGNAL_STRENGTH)) {
-		if(event.wait_for(lock, std::chrono::seconds(5000)) == std::cv_status::timeout) {
+		if(event.wait_for(lock, std::chrono::seconds(5)) == std::cv_status::timeout) {
 			return -1;
 		}
 	}
