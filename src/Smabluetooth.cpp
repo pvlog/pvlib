@@ -249,6 +249,7 @@ void Smabluetooth::worker_thread() {
 		        == 0) || (memcmp(packet.mac_dst, MAC_BROADCAST, 6) == 0);
 
 		if (((packet.cmd == 0x01) || (packet.cmd == 0x08)) && for_us) {
+			LOG_TRACE_HEX("received smadata2plus packet:", packet.data, packet.len);
 			mutex.lock();
 			if (packets.size() >= MAX_PACKETS_SIZE) { //remove old packets
 				packets.pop();
