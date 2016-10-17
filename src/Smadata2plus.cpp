@@ -609,7 +609,7 @@ int Smadata2plus::logout() {
 	packet.packet_num = 0;
 	packet.start = true;
 
-	byte_store_u32_little(buf,     0xfffd0100);
+	byte_store_u32_little(buf,     0xfffd010e);
 	byte_store_u32_little(buf + 4, 0xffffffff);
 
 	Transaction t(this);
