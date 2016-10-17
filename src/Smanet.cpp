@@ -278,6 +278,11 @@ int Smanet::read(uint8_t *data, int len, std::string &from)
 			pos = 0;
 		}
 
+		//check if no data available
+		if (size == 0) {
+			return 0;
+		}
+
 		switch (read_buf[pos]) {
 		case HDLC_ESC:
 			pos++;
