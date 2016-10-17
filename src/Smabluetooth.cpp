@@ -422,6 +422,7 @@ int Smabluetooth::read(uint8_t *data, int maxlen, std::string &from) {
 
 	//FIXME: data buffering do not discard left packet data
 	int dataLen = std::min(static_cast<int>(packet.len), maxlen);
+	from = std::string((char*)packet.mac_src, 6);
 	memcpy(data, packet.data, maxlen);
 
 	return dataLen;
