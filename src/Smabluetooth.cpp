@@ -72,6 +72,8 @@ int Smabluetooth::cmd_02(const Packet *packet) {
 		return -1;
 	}
 
+	LOG_TRACE("Got command 02");
+
 	UniqueLock lock(mutex);
 	if (state != STATE_NOT_CONNECTED) {
 		return 0; //ignore packet
@@ -93,6 +95,9 @@ int Smabluetooth::cmd_02(const Packet *packet) {
 
 	lock.lock();
 	state = STATE_START;
+	lock.unlock();
+
+	event.notify_all();
 
 	return 0;
 }
@@ -104,6 +109,7 @@ int Smabluetooth::cmd_0A(const Packet *packet) {
 		return 0;
 	}
 
+	LOG_TRACE("Got command 0A");
 
 	LockGuard lock(mutex);
 	if (state != STATE_START) {
@@ -125,6 +131,8 @@ int Smabluetooth::cmd_05(const Packet *packet) {
 		return -1;
 	}
 
+	LOG_TRACE("Got command 05");
+
 	num_devices = packet->len / 8 - 1;
 	LOG_INFO("Found %d devices", num_devices);
 
@@ -133,12 +141,15 @@ int Smabluetooth::cmd_05(const Packet *packet) {
 		return -1;
 	}
 
-	LockGuard lock(mutex);
+	UniqueLock lock(mutex);
 	if (state != STATE_MAC) {
 		return 0; //ignore packet
 	}
 	this->num_devices = num_devices;
 	state = STATE_DEVICE_LIST;
+	lock.unlock();
+
+	event.notify_all();
 
 	return 0;
 }
@@ -151,6 +162,8 @@ int Smabluetooth::cmd_04(const Packet *packet) {
 	if (packet->data[0] != 0x05) {
 		return 0;
 	}
+
+	LOG_TRACE("Got command 04");
 
 	mutex.lock();
 	signalStrength = packet->data[4] * 100 / 0xff;
@@ -288,7 +301,7 @@ int Smabluetooth::connect() {
 			return -1;
 		}
 
-		if (event.wait_for(lock, std::chrono::seconds(15000)) == std::cv_status::timeout) {
+		if (event.wait_for(lock, std::chrono::seconds(5000)) == std::cv_status::timeout) {
 			LOG_ERROR("Connection timeout!");
 			quit.store(true);
 			thread.join();
