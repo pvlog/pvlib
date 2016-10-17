@@ -24,6 +24,9 @@
 #include <Protocol.h>
 #include <cstring>
 
+#include "Smanet.h"
+#include "Smabluetooth.h"
+
 struct Smabluetooth;
 class Connection;
 //struct Device;
@@ -36,6 +39,8 @@ class Transaction;
 class Smadata2plus : public Protocol {
 	friend Transaction;
 public:
+	Smadata2plus(Connection *connection);
+
 	virtual ~Smadata2plus() {};
 
 	virtual int connect(const char *password, const void *param) override;
@@ -105,14 +110,13 @@ private:
 	int syncTime();
 
 	Connection *connection;
-	Smabluetooth *sma;
-	Smanet *smanet;
+	Smabluetooth sma;
+	Smanet smanet;
 
 	uint16_t transaction_cntr; // Packet counter
 	bool transaction_active;
 
 	std::vector<Device> devices;
-	int device_num;
 };
 
 #endif /* #ifndef SMADATA2PLUS_H */

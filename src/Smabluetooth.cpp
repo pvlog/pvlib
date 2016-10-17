@@ -24,8 +24,10 @@
 #include <cstdlib>
 #include <cstdbool>
 #include <cassert>
+#include <algorithm>
 
 #include "log.h"
+#include "Connection.h"
 
 #define HEADER_SIZE 18
 #define TIMEOUT 5000
@@ -261,6 +263,16 @@ error:
 
 }
 
+Smabluetooth::Smabluetooth(Connection *con) :
+		con(con),
+		connected(false),
+		state(STATE_NOT_CONNECTED),
+		num_devices(0),
+		signalStrength(0),
+		events(0) {
+
+}
+
 int Smabluetooth::connect() {
 	//start thread
 	quit.store(false);
@@ -342,6 +354,27 @@ int Smabluetooth::writePacket(const Packet *packet)
 	return 0;
 }
 
+int Smabluetooth::write(const uint8_t *data, int len, const std::string &to) {
+	Packet packet;
+
+	//packet.data = data;
+	packet.len = len;
+	packet.cmd = 0x01;
+
+	if (to.size() != 6) {
+		LOG_ERROR("Invalid destination: %s", to);
+		return -1;
+	}
+
+	if (len > (int)sizeof(packet.data)) {
+		LOG_ERROR("Invalid data size: %d, can be maximal: %d", len, sizeof(packet.data));
+		return -1;
+	}
+
+	memcpy(packet.mac_dst, to.c_str(), 6);
+	return writePacket(&packet);
+}
+
 int Smabluetooth::readPacket(Packet *packet) {
 	UniqueLock lock(mutex);
 
@@ -358,6 +391,21 @@ int Smabluetooth::readPacket(Packet *packet) {
 	*packet = packets.front(); packets.pop();
 
 	return 0;
+}
+
+int Smabluetooth::read(uint8_t *data, int maxlen, std::string &from) {
+	Packet packet;
+	int ret;
+
+	if ((ret = readPacket(&packet)) < 0) {
+		return ret;
+	}
+
+	//FIXME: data buffering do not discard left packet data
+	int dataLen = std::min(static_cast<int>(packet.len), maxlen);
+	memcpy(data, packet.data, maxlen);
+
+	return dataLen;
 }
 
 int Smabluetooth::getSignalStrength(const uint8_t *mac)

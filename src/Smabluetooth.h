@@ -21,7 +21,6 @@
 #ifndef SMABLUETOOTH_H
 #define SMABLUETOOTH_H
 
-#include <Connection.h>
 #include <cstdint>
 #include <thread>
 #include <mutex>
@@ -29,6 +28,7 @@
 #include <atomic>
 #include <queue>
 
+#include "ReadWrite.h"
 
 #define SMABLUETOOTH_CONNECT 0x02
 #define SMABLUETOOTH_ADDRESS 0x0a
@@ -36,35 +36,18 @@
 #define SMABLUETOOTH_ASKSIGNAL 0x03
 #define SMABLUETOOTH_ANSWERSIGNAL 0x04
 
+class Connection;
 
-/*
-typedef struct smabluetooth_header_s {
-    uint8_t     len;        ///< you don't need to set it, it is done for you.
-    uint8_t     mac_src[6]; ///< you don't need to set it, it is done for you.
-    uint8_t     mac_dst[6]; ///< you don't need to set it, it is done for you.
-    uint8_t     cmd;        ///< command to send.
-}smabluetooth_header_t;
-
-typedef struct smabluetooth_packet_s {
-    smabluetooth_header_t header; ///< packet header.
-    uint8_t     *data;       ///< data to send.
-    uint8_t     data_len;    ///< lenght of data,
-    int         unknown_src; ///< used as boolean, if set to 1 source addr is not sent, only used for sending.
-    int         broadcast;   ///< used as boolean, if set to false data is only send to connection partner.
-}smabluetooth_packet_t;
-*/
-
-
-class Smabluetooth : public Connection {
+class Smabluetooth : public ReadWrite {
 public:
-	const static int HEADER_SIZE = 18;
+	static const int HEADER_SIZE = 18;
 
 	struct Packet {
-		uint8_t mac_src[6];
-		uint8_t mac_dst[6];
-		uint8_t cmd;
-		uint8_t data[255 - HEADER_SIZE];
-		uint8_t len;
+		uint8_t mac_src[6];              //< source mac
+		uint8_t mac_dst[6];              //< destination mac
+		uint8_t cmd;                     //< packet commando
+		uint8_t data[255 - HEADER_SIZE]; //< packet data
+		uint8_t len;                     //< data len
 	};
 
 
@@ -79,7 +62,7 @@ public:
 	/**
 	 * Close smabluetooth.
 	 */
-	virtual ~Smabluetooth() override;
+	virtual ~Smabluetooth() {};
 
 	/**
 	 * Send data.
@@ -93,7 +76,7 @@ public:
 	/**
 	 * Write data.
 	 */
-	int write(const uint8_t *data, int len, const std::string &to);
+	virtual int write(const uint8_t *data, int len, const std::string &to) override;
 
 	/**
 	 * Read data.
@@ -110,7 +93,7 @@ public:
 	/**
 	 * Read data
 	 */
-	int readData(uint8_t *data, int len, std::string &from);
+	virtual int read(uint8_t *data, int maxlen, std::string &from) override;
 
 	/**
 	 * Connect to string convertet.

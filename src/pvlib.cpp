@@ -88,7 +88,7 @@ pvlib_plant *pvlib_open(uint32_t connection,
 		return NULL;
 	}
 
-	prot = Protocol::availableProtocols[protocol]->create();
+	prot = Protocol::availableProtocols[protocol]->create(con);
 	if (prot == NULL) {
 		return NULL;
 	}

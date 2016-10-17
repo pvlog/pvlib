@@ -21,11 +21,12 @@
 #ifndef SMANET_H
 #define SMANET_H
 
-#include <Connection.h>
 #include <cstdint>
 
+#include "ReadWrite.h"
 
-class Smanet : public Connection {
+
+class Smanet : public ReadWrite {
 public:
 	/**
 	 * Setup smanet.
@@ -35,13 +36,13 @@ public:
 	 *
 	 * @return smanet handle on success, else NULL.
 	 */
-	Smanet(uint16_t protocol, Connection* con);
+	Smanet(uint16_t protocol, ReadWrite *con);
 
 	/**
 	 * Close smanet.
 	 *
 	 */
-	~Smanet();
+	virtual ~Smanet() {};
 
 	/**
 	 * Write data.
@@ -54,7 +55,7 @@ public:
 	 *
 	 * @return >= 0 on success, else < 0.
 	 */
-	int write(uint8_t *data, int len, const std::string &to);
+	virtual int write(const uint8_t *data, int len, const std::string &to) override;
 
 	/**
 	 * Read data.
@@ -71,14 +72,14 @@ public:
 	 *
 	 * @return amount of bytes read on success, else < 0.
 	 */
-	int read(uint8_t *data, int len, std::string &from);
+	virtual int read(uint8_t *data, int len, std::string &from) override;
 
 private:
 	int readFrame(uint8_t *data, int len, std::string &from);
 
 	static constexpr int BUF_SIZE = 255;
 	uint16_t protocol;
-	Connection* con;
+	ReadWrite *con;
 	uint8_t read_buf[BUF_SIZE];
 	uint8_t size;
 };

@@ -59,7 +59,7 @@ static const uint16_t fcstab[256] = { 0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x
         0x0e70, 0x1ff9, 0xf78f, 0xe606, 0xd49d, 0xc514, 0xb1ab, 0xa022, 0x92b9, 0x8330, 0x7bc7,
         0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78 };
 
-static uint16_t fcsCalc(uint16_t fcs, uint8_t* buf, int len)
+static uint16_t fcsCalc(uint16_t fcs, const uint8_t* buf, int len)
 {
 	while (len--) {
 		fcs = (uint16_t)((fcs >> 8) ^ fcstab[(fcs ^ *buf++) & 0xff]);
@@ -113,7 +113,7 @@ static uint16_t fcsCalc(uint16_t fcs, uint8_t* buf, int len)
 //	}
 //}
 
-static int addHdlc(uint8_t *in, uint8_t *out, uint8_t len)
+static int addHdlc(const uint8_t *in, uint8_t *out, uint8_t len)
 {
 	uint16_t pos = 0;
 	uint8_t i;
@@ -246,6 +246,13 @@ static int validateFrame(uint8_t *frame, uint16_t len)
 //	free(smanet);
 //}
 
+Smanet::Smanet(uint16_t protocol, ReadWrite *con) :
+		protocol(protocol),
+		con(con),
+		size(0) {
+
+}
+
 int Smanet::read(uint8_t *data, int len, std::string &from)
 {
 	uint8_t buf[FRAME_SIZE];
@@ -314,7 +321,7 @@ int Smanet::read(uint8_t *data, int len, std::string &from)
 	return len;
 }
 
-int Smanet::write(uint8_t *data, int len, const std::string &to)
+int Smanet::write(const uint8_t *data, int len, const std::string &to)
 {
 	uint8_t buf[FRAME_SIZE];
 	uint16_t fcs;
@@ -332,6 +339,7 @@ int Smanet::write(uint8_t *data, int len, const std::string &to)
 	fcs = fcsCalc(fcs, data, len);
 	fcs ^= 0xffff; /* complement */
 
+	//FIXME: length check!!!
 	pos += addHdlc(data, &buf[5], len);
 
 	buf[pos++] = fcs & 0x00ff;

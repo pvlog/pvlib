@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#include "ReadWrite.h"
+
 //#include "pvlib.h"
 
 //#define CONNECTION_MAX_NAME 128
@@ -56,7 +58,7 @@
 
 struct ConnectionInfo;
 
-class Connection {
+class Connection : public ReadWrite {
 public:
 	virtual ~Connection() {};
 
@@ -70,37 +72,6 @@ public:
 
 	virtual void disconnect() = 0;
 
-	/**
-	 * Write data.
-	 *
-	 * @param con connection handle.
-	 * @param data data to write.
-	 * @param len length of data.
-	 *
-	 * @return < 0 if error occurs.
-	 */
-	virtual int write(const uint8_t *data, int len, const std::string &to) = 0;
-
-	int write(const uint8_t *data, int len) {
-		return write(data, len, "");
-	}
-
-	/**
-	 * Read data.
-	 *
-	 * @param con connection handle.
-	 * @param data buffer to read to.
-	 * @param len length of data to read.
-	 * @param timeout timeout in ms
-	 *
-	 * @return < 0 if error occurs, else amount of bytes read.
-	 */
-	virtual int read(uint8_t *data, int max_len, std::string &from) = 0;
-
-	int read(uint8_t *data, int max_len) {
-		std::string str;
-		return read(data, max_len, str);
-	}
 
 	/**
 	 * Give some usefull connection info.

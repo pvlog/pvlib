@@ -83,6 +83,7 @@
 //void protocol_close(protocol_t *protocol);
 //
 
+class Connection;
 struct ProtocolInfo;
 
 class Protocol {
@@ -111,7 +112,7 @@ public:
 };
 
 struct ProtocolInfo {
-	typedef Protocol* (*CreateProtocol)();
+	typedef Protocol* (*CreateProtocol)(Connection *con);
 
 	const CreateProtocol create;
     const char *name;

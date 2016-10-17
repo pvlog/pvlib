@@ -42,7 +42,7 @@
 using std::this_thread::sleep_for;
 using std::chrono::seconds;
 
-#define SMADATA2PLUS_BROADCAST 0xffffffff
+static const uint32_t SMADATA2PLUS_BROADCAST = 0xffffffff;
 
 static const uint16_t PROTOCOL = 0x6560;
 static const unsigned int HEADER_SIZE = 24;
@@ -63,7 +63,7 @@ static const int FREQUENCY_DIVISOR = 100;   // to herz
 static const uint32_t smadata2plus_serial = 0x3a8b74b6;
 
 static const int NUM_RETRIES = 3;
-
+static const uint16_t TRANSACTION_CNTR_START = 0x8000;
 
 struct Packet {
 	char     src_mac[6];
@@ -185,6 +185,15 @@ struct  Record {
 	} record;
 };
 
+static void inc_transaction_cntr(uint16_t &transaction_cntr)
+{
+	if ((transaction_cntr < TRANSACTION_CNTR_START) || (transaction_cntr == 0xffff)) {
+		transaction_cntr = TRANSACTION_CNTR_START;
+	} else {
+		transaction_cntr++;
+	}
+}
+
 class Transaction {
 	Smadata2plus *sma;
 
@@ -196,7 +205,7 @@ public:
 
 	void end() {
 		sma->transaction_active = false;
-		++sma->transaction_cntr;
+		inc_transaction_cntr(sma->transaction_cntr);
 	}
 
 	Transaction(Smadata2plus *sma) : sma(sma) {
@@ -381,19 +390,6 @@ static int parseChannelRecords(const uint8_t *buf,
 //	return 0;
 //}
 
-//static void reset_transaction_cntr(uint16_t *pkt_cnt)
-//{
-//	*pkt_cnt = 0x8000;
-//}
-//
-//static void inc_transaction_cntr(smadata2plus_t *sma)
-//{
-//	if ((sma->transaction_cntr < 0x8000) || (sma->transaction_cntr == 0xffff)) {
-//		sma->transaction_cntr = 0x8000;
-//	} else {
-//		sma->transaction_cntr++;
-//	}
-//}
 
 static Smadata2plus::Device *getDevice(std::vector<Smadata2plus::Device> &devices, uint32_t serial) {
 	for (Smadata2plus::Device& device : devices) {
@@ -465,7 +461,7 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 
 	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
 
-	return smanet->write(buf, size + packet->len, mac_dst);
+	return smanet.write(buf, size + packet->len, mac_dst);
 }
 
 //static void begin_transaction(smadata2plus_t *sma)
@@ -493,7 +489,7 @@ int Smadata2plus::read(Packet *packet) {
 	assert(packet->len <= 512);
 
 	std::string src(packet->src_mac);
-	len = smanet->read(buf, packet->len + HEADER_SIZE, src);
+	len = smanet.read(buf, packet->len + HEADER_SIZE, src);
 	if (len < 0) {
 		LOG_ERROR("smanet_read failed.");
 		return -1;
@@ -914,18 +910,27 @@ int Smadata2plus::syncTime() {
 	return 0;
 }
 
+Smadata2plus::Smadata2plus(Connection *con) :
+		connection(con),
+		sma(con),
+		smanet(PROTOCOL, &sma),
+		transaction_cntr(TRANSACTION_CNTR_START),
+		transaction_active(false) {
+
+}
+
 int Smadata2plus::connect(const char *password, const void *param)
 {
 	int deviceNum;
 	int ret;
 	int cnt = 0;
 
-	if ((ret = sma->connect()) < 0) {
+	if ((ret = sma.connect()) < 0) {
 	    LOG_ERROR("Connecting bluetooth failed!");
 	    return ret;
 	}
 
-	deviceNum = sma->getDeviceNum();
+	deviceNum = sma.getDeviceNum();
 	LOG_INFO("%d devices!", deviceNum);
 
 	if ((ret = logout()) < 0) {
@@ -1397,14 +1402,12 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 	return 0;
 }
 
-int Smadata2plus::inverterNum()
-{
-	return device_num;
+int Smadata2plus::inverterNum() {
+	return devices.size();
 }
 
-int Smadata2plus::getDevices(uint32_t* ids, int max_num)
-{
-	for (int i = 0; i < max_num && i < device_num; i++) {
+int Smadata2plus::getDevices(uint32_t* ids, int max_num) {
+	for (int i = 0; i < max_num && i < static_cast<int>(devices.size()); i++) {
 		ids[i] = devices[i].serial;
 	}
 
@@ -1452,7 +1455,7 @@ int Smadata2plus::getDevices(uint32_t* ids, int max_num)
 //}
 
 void Smadata2plus::disconnect() {
-	sma->disconnect();
+	sma.disconnect();
 }
 
 //int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params) {
@@ -1510,8 +1513,8 @@ void Smadata2plus::disconnect() {
 //	return 0;
 //}
 
-static Protocol *createSmadata2plus() {
-	return new Smadata2plus();
+static Protocol *createSmadata2plus(Connection *con) {
+	return new Smadata2plus(con);
 }
 
 extern const ProtocolInfo smadata2plusProtocolInfo;
