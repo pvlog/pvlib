@@ -402,7 +402,7 @@ int Smabluetooth::readPacket(Packet *packet) {
 
 	while (packets.empty()) {
 		if(event.wait_for(lock, std::chrono::seconds(5)) == std::cv_status::timeout) {
-			return -1;
+			return 0;
 		}
 	}
 
@@ -415,7 +415,7 @@ int Smabluetooth::read(uint8_t *data, int maxlen, std::string &from) {
 	Packet packet;
 	int ret;
 
-	if ((ret = readPacket(&packet)) < 0) {
+	if ((ret = readPacket(&packet)) <= 0) {
 		return ret;
 	}
 
