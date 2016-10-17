@@ -291,6 +291,7 @@ int Smabluetooth::connect() {
 	quit.store(false);
 	thread = std::thread([this] { worker_thread(); });
 
+	LOG_INFO("Connecting to device!");
 	UniqueLock lock(mutex);
 	//Wait until we get list of all devices
 	while (state != STATE_DEVICE_LIST) {
@@ -311,6 +312,8 @@ int Smabluetooth::connect() {
 	}
 	state = STATE_CONNECTED;
 	lock.unlock();
+
+	LOG_INFO("Connected to device!");
 
 	int signalStrength = getSignalStrength(mac_inv);
 	LOG_INFO("Signal strength %d\n", signalStrength);
