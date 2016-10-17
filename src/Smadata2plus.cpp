@@ -815,9 +815,9 @@ int Smadata2plus::syncTime() {
 	byte_store_u32_little(buf + 16, 0);
 	byte_store_u32_little(buf + 20, 0);
 	byte_store_u32_little(buf + 24, 0);
-	byte_store_u32_little(buf + 24, 0);
-	byte_store_u32_little(buf + 28, 1);
+	byte_store_u32_little(buf + 28, 0);
 	byte_store_u32_little(buf + 32, 1);
+	byte_store_u32_little(buf + 36, 1);
 
 	Transaction t(this);
 	if ((ret = write(&packet)) < 0) {
