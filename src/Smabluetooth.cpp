@@ -362,7 +362,7 @@ int Smabluetooth::write(const uint8_t *data, int len, const std::string &to) {
 	packet.cmd = 0x01;
 
 	if (to.size() != 6) {
-		LOG_ERROR("Invalid destination: %s", to);
+		LOG_ERROR("Invalid destination: %s", to.c_str());
 		return -1;
 	}
 
