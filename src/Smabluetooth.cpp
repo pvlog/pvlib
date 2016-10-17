@@ -389,6 +389,7 @@ int Smabluetooth::write(const uint8_t *data, int len, const std::string &to) {
 		return -1;
 	}
 
+	memcpy(packet.data, data, len);
 	memcpy(packet.mac_dst, to.c_str(), 6);
 	return writePacket(&packet);
 }
