@@ -27,6 +27,7 @@
 #include <chrono>
 #include <thread>
 #include <cinttypes>
+#include <algorithm>
 
 #include <Protocol.h>
 #include <Smabluetooth.h>
@@ -489,12 +490,14 @@ int Smadata2plus::read(Packet *packet) {
 
 	assert(packet->len <= 512);
 
-	std::string src(packet->src_mac);
+	std::string src;
 	len = smanet.read(buf, packet->len + HEADER_SIZE, src);
 	if (len <= 0) { //handle timeout as failure
 		LOG_ERROR("smanet_read failed.");
 		return -1;
 	}
+	int macsize = std::min(6, (int)src.size());
+	memcpy(packet->src_mac, src.c_str(), macsize);
 
 	LOG_TRACE_HEX("read smadata2plus packet", buf, len);
 
