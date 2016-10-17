@@ -491,7 +491,7 @@ int Smadata2plus::read(Packet *packet) {
 
 	std::string src(packet->src_mac);
 	len = smanet.read(buf, packet->len + HEADER_SIZE, src);
-	if (len < 0) {
+	if (len <= 0) { //handle timeout as failure
 		LOG_ERROR("smanet_read failed.");
 		return -1;
 	}
