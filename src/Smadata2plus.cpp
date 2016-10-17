@@ -461,7 +461,8 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 
 	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
 
-	return smanet.write(buf, size + packet->len, mac_dst);
+	std::string to(mac_dst, 6);
+	return smanet.write(buf, size + packet->len, to);
 }
 
 //static void begin_transaction(smadata2plus_t *sma)
@@ -945,7 +946,7 @@ int Smadata2plus::connect(const char *password, const void *param)
 		} else if (ret < 0){
 			LOG_WARNING("Device discover failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 	cnt = 0;
@@ -958,7 +959,7 @@ int Smadata2plus::connect(const char *password, const void *param)
 		} else if (ret < 0){
 			LOG_WARNING("Authentication failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 	cnt = 0;
@@ -971,7 +972,7 @@ int Smadata2plus::connect(const char *password, const void *param)
 		} else if (ret < 0){
 			LOG_WARNING("Sync time failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 	cnt = 0;
@@ -1029,7 +1030,7 @@ int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 		} else if (ret < 0){
 			LOG_WARNING("Reading dc spot data failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 
@@ -1136,7 +1137,7 @@ int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 		} else if (ret < 0){
 			LOG_WARNING("Reading dc spot data failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 
@@ -1216,7 +1217,7 @@ int Smadata2plus::readStats(uint32_t id, pvlib_stats *stats) {
 		} else if (ret < 0){
 			LOG_WARNING("Reading stats failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 
@@ -1263,7 +1264,7 @@ int Smadata2plus::readStatus(uint32_t id, pvlib_status *status)
 		} else if (ret < 0){
 			LOG_WARNING("Reading inverter status failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 
@@ -1345,7 +1346,7 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 		} else if (ret < 0){
 			LOG_WARNING("Reading inverter info failed! Retrying ...");
 			cnt++;
-			sleep_for(seconds(cnt * 1000));
+			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 
