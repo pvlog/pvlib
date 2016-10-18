@@ -456,7 +456,7 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	if (packet->start)
 		buf[20] = packet->packet_num;
 
-	byte_store_u16_little(&buf[22], transaction_cntr);
+	byte_store_u16_little(&buf[22], transactionCntr);
 
 	memcpy(&buf[size], packet->data, packet->len);
 
@@ -869,7 +869,7 @@ int Smadata2plus::syncTime() {
 	packet.packet_num = 0;
 	packet.start = 0;
 
-	byte_store_u32_little(buf, 0xf000020a);
+	byte_store_u32_little(buf,     0xf000010a);
 	byte_store_u32_little(buf + 4, 0x1);
 
 	if ((ret = writeReplay(&packet, transaction_cntr)) < 0) {
