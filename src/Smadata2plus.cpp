@@ -1433,8 +1433,13 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 		return ret;
 	}
 
-	if ((ret = read(&packet)) < 0) {
-		return ret;
+	uint8_t answerBuf[512];
+	Packet answer;
+
+	answer.data = answerBuf;
+	answer.len = sizeof(512);
+
+	while ((ret = read(&packet)) > 0) {
 	}
 
 	return 0;
