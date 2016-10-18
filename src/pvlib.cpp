@@ -162,9 +162,9 @@ int pvlib_get_inverter_info(pvlib_plant *plant, uint32_t id, pvlib_inverter_info
 	return plant->protocol->readInverterInfo(id, inverter_info);
 }
 
-//void *pvlib_protocol_handle(pvlib_plant *plant) {
-//	return plant->protocol->handle;
-//}
+void *pvlib_protocol_handle(pvlib_plant *plant) {
+	return plant->protocol;
+}
 
 void pvlib_close(pvlib_plant *plant) {
 	delete plant->protocol;

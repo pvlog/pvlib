@@ -74,8 +74,8 @@ public:
 	};
 
 	enum UserType {
-		PASSWORD_USER,
-		PASSWORD_INSTALLER
+		USER,
+		INSTALLER
 	};
 
 	enum RecordType {
@@ -83,6 +83,9 @@ public:
 		RECORD_2,
 		RECORD_3
 	};
+
+	virtual int readEventData(uint32_t serial, time_t from, time_t to, UserType user);
+
 private:
 	int writeReplay(const Packet *packet, uint16_t transactionCntr);
 

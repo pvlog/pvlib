@@ -958,7 +958,7 @@ int Smadata2plus::connect(const char *password, const void *param)
 	cnt = 0;
 
 	do {
-		ret = authenticate(password, PASSWORD_USER);
+		ret = authenticate(password, USER);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Authentication  failed!");
 			return ret;
@@ -1404,6 +1404,37 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 		default:
 			break;
 		}
+	}
+
+	return 0;
+}
+
+int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserType user) {
+	Packet packet;
+	uint8_t buf[12];
+	int ret;
+
+	memset(buf, 0x00, sizeof(buf));
+
+	packet.ctrl = CTRL_MASTER;
+	packet.dst = ADDR_BROADCAST;
+	packet.flag = 0x00;
+	packet.data = buf;
+	packet.len = sizeof(buf);
+	packet.packet_num = 0;
+	packet.start = 1;
+
+	byte_store_u32_little(buf, user == USER ? 0x70100200 : 0x70120200);
+	byte_store_u32_little(buf + 4, from);
+	byte_store_u32_little(buf + 8, to);
+
+	Transaction t(this);
+	if ((ret = write(&packet)) < 0) {
+		return ret;
+	}
+
+	if ((ret = read(&packet)) < 0) {
+		return ret;
 	}
 
 	return 0;

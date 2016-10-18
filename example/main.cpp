@@ -18,13 +18,15 @@
  *
  *****************************************************************************/
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
+#include <ctime>
 
 #include "pvlib.h"
+#include "Smadata2plus.h"
 
 static void print_usage()
 {
@@ -130,7 +132,7 @@ int main(int argc, char **argv) {
 */
     inv_handle = 0;
 
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < 1; i++) {
         if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
             fprintf(stderr, "get live values failed!\n");
             return -1;
@@ -165,7 +167,11 @@ int main(int argc, char **argv) {
         sleep(1);
     }
 
-//    sma = pvlib_protocol_handle(plant);
+    time_t to   = time(0);
+    time_t from = to - 24 * 60 * 60 *7;
+
+	Smadata2plus *sma = (Smadata2plus*)pvlib_protocol_handle(plant);
+	sma->readEventData(0, from, to, Smadata2plus::USER);
 //    if (sma == NULL) {
 //        fprintf(stderr, "Could not get native connection handle!");
 //        return -1;
