@@ -877,6 +877,9 @@ int Smadata2plus::syncTime() {
 		return ret;
 	}
 
+	//FIXME: SunnyExplorer sends an packet with inverter time
+	//
+
 	time_t cur_time = time(NULL);
 
 	if ((abs(cur_time - inverter_time1)) > 10) {
