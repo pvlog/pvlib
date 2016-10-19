@@ -1496,14 +1496,14 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 		}
 
 		//check object
-		uint16_t obj = byte_parse_u16_little(buf + 2);
+		uint16_t obj = byte_parse_u16_little(answerBuf + 2);
 		if (obj != reqObject) {
 			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObject, obj);
 			return -1;
 		}
 
-		uint32_t dataFrom = byte_parse_u32_little(buf + 4);
-		uint32_t dataTo   = byte_parse_u32_little(buf + 8);
+		uint32_t dataFrom = byte_parse_u32_little(answerBuf + 4);
+		uint32_t dataTo   = byte_parse_u32_little(answerBuf + 8);
 		int entrys = dataTo - dataFrom;
 		if (entrys <= 0) {
 			LOG_ERROR("Unexpected entry number: %d", entrys);
@@ -1511,7 +1511,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 		}
 
 		for (int i = 12; i + 48 < answer.len && ((i - 12) / 48 < entrys); i += 48) {
-			EventData eventData = parseEventData(buf + i, 48);
+			EventData eventData = parseEventData(answerBuf + i, 48);
 			if (eventData.entryId == 1) {
 				events.push_back(eventData);
 			}

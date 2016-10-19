@@ -362,14 +362,13 @@ public:
 	}
 
 	inline uint64_t u64le() {
-			assert(buf + 8 < end);
-			return byte_parse_u64_little(buf); buf += 8;
+		assert(buf + 8 < end);
+		return byte_parse_u64_little(buf); buf += 8;
 	}
 
 	inline int16_t i16le(){
 		return static_cast<int16_t>(u16le());
 	}
-
 
 	inline int32_t i32le() {
 		return static_cast<int32_t>(u32le());
