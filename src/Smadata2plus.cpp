@@ -1489,7 +1489,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 		}
 
 		//check data len
-		if (packet.len < 12) {
+		if (answer.len < 12) {
 			LOG_ERROR("Got packet with unexpected length!");
 			return -1;
 		}
@@ -1509,12 +1509,12 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 			return -1;
 		}
 
-		for (int i = 12; i + 48 < packet.len && ((i - 12) / 48 < entrys); ++i) {
+		for (int i = 12; i + 48 < answer.len && ((i - 12) / 48 < entrys); i += 48) {
 			EventData eventData = parseEventData(buf + i, 48);
 			events.push_back(eventData);
 		}
 
-	} while (packet.packet_num > 0);
+	} while (answer.packet_num > 0);
 
 	eventData = events;
 
