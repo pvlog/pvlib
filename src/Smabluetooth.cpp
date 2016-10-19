@@ -280,7 +280,6 @@ error:
 
 Smabluetooth::Smabluetooth(Connection *con) :
 		con(con),
-		connected(false),
 		state(STATE_NOT_CONNECTED),
 		num_devices(0),
 		signalStrength(0),
@@ -289,12 +288,12 @@ Smabluetooth::Smabluetooth(Connection *con) :
 }
 
 Smabluetooth::~Smabluetooth() {
-	if (connected) {
-		disconnect();
-	}
+	disconnect();
 }
 
 int Smabluetooth::connect() {
+	disconnect();
+
 	//start thread
 	quit.store(false);
 	thread = std::thread([this] { worker_thread(); });
@@ -329,12 +328,20 @@ int Smabluetooth::connect() {
 	return 0;
 }
 
-void Smabluetooth::disconnect()
-{
+void Smabluetooth::disconnect() {
+	State state;
+	UniqueLock lock(mutex);
+	state = this->state;
+	lock.unlock();
+
+	if (state == STATE_NOT_CONNECTED) {
+		return;
+	}
+
 	quit.store(true);
 	thread.join();
 
-	LockGuard lock(mutex);
+	lock.lock();
 	state = STATE_NOT_CONNECTED;
 }
 

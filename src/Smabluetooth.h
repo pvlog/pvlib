@@ -153,7 +153,6 @@ private:
 
 
 	Connection *con;
-	bool connected;
 
 	State state;
 	int num_devices;
