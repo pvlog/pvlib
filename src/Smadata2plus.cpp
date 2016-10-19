@@ -43,6 +43,9 @@
 using std::this_thread::sleep_for;
 using std::chrono::seconds;
 
+using byte::DataReader;
+using byte::DataWriter;
+
 static const uint32_t SMADATA2PLUS_BROADCAST = 0xffffffff;
 
 static const uint16_t PROTOCOL = 0x6560;
@@ -228,7 +231,7 @@ static void parseAttributes(const uint8_t *data, int dataLen, Attribute *attribu
 	int attributeIdx = 0;
 
 	for (int idx = 0; idx < dataLen && attributeIdx < *len; idx += 4, attributeIdx++) {
-		uint32_t attribute = byte_parse_u32_little(data + idx) & 0x00ffffff;
+		uint32_t attribute = byte::parseU32le(data + idx) & 0x00ffffff;
 		uint8_t selected = data[idx + 3];
 
 		if (attribute == 0xfffffe) {
@@ -243,24 +246,27 @@ static void parseAttributes(const uint8_t *data, int dataLen, Attribute *attribu
 }
 
 static void parseRecordHeader(const uint8_t* buf, RecordHeader *header) {
-	header->cnt  = buf[0];
-	header->idx  = byte_parse_u16_little(buf + 1);
-	header->type = buf[3];
-	header->time = byte_parse_u32_little(buf + 4);
+	DataReader dr(buf, 8);
+
+	header->cnt  = dr.u8();
+	header->idx  = dr.u16le();
+	header->type = dr.u8();
+	header->time = dr.u32le();
 }
 
-static void parseRecord1(const uint8_t *buf, Record1 *r1)
-{
-	r1->value1 = byte_parse_u32_little(buf);
-	r1->value2 = byte_parse_u32_little(buf + 4);
-	r1->value3 = byte_parse_u32_little(buf + 8);
-	r1->value4 = byte_parse_u32_little(buf + 12);
-	r1->unknonwn = byte_parse_u32_little(buf + 16);
+static void parseRecord1(const uint8_t *buf, Record1 *r1) {
+	DataReader dr(buf, 20);
+
+	r1->value1   = dr.u32le();
+	r1->value2   = dr.u32le();
+	r1->value3   = dr.u32le();
+	r1->value4   = dr.u32le();
+	r1->unknonwn = dr.u32le();
 }
 
 static void parseRecord2(const uint8_t *buf, Record2 *r2)
 {
-	r2->value = byte_parse_u64_little(buf);
+	r2->value = byte::parseU64le(buf);
 }
 
 static void parseRecord3(const uint8_t *buf, Record3 *r3)
@@ -270,30 +276,32 @@ static void parseRecord3(const uint8_t *buf, Record3 *r3)
 
 
 static int parseChannelRecords(const uint8_t *buf,
-                                 int len, Record *records,
-                                 int *maxRecords,
-                                 Smadata2plus::RecordType type,
-                                 int16_t requestedObject)
+                               int len, Record *records,
+                               int *maxRecords,
+                               Smadata2plus::RecordType type,
+                               int16_t requestedObject)
 {
+	DataReader dr(buf, len);
+
 	if (len < 8) {
 		LOG_ERROR("Invalid record length %d", len);
 		return -1; //invalid length
 	}
 
-	if (buf[0] != 0x1 || buf[1] != 0x02) {
+	if (dr.u8() != 0x1 || dr.u8() != 0x02) {
 		LOG_ERROR("Unexpected data in record header!");
 		return -1; //invalid data
 	}
 
-	uint16_t object = byte_parse_u16_little(buf + 2);
+	uint16_t object = dr.u16le();
 	LOG_DEBUG("Object id %02x", object);
 	if (object != requestedObject) {
 		LOG_ERROR("Invalid object requested %d got %d", object, requestedObject);
 		return -1;
 	}
 
-	uint32_t unknown1 = byte_parse_u32_little(buf + 4);
-	uint32_t unknown2 = byte_parse_u32_little(buf + 8);
+	uint32_t unknown1 = dr.u32le();
+	uint32_t unknown2 = dr.u32le();
 	LOG_DEBUG("record data unknonwn1: %d", unknown1);
 	LOG_DEBUG("record data unknonwn2: %d", unknown2);
 
@@ -418,18 +426,19 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	uint8_t buf[511 + HEADER_SIZE];
 	uint8_t size = HEADER_SIZE;
 	char mac_dst[6];
+	DataWriter dw(buf, HEADER_SIZE);
 
 	assert(packet->len + HEADER_SIZE <= sizeof(buf));
 	assert(packet->len % 4 == 0);
 
 	memset(buf, 0x00, HEADER_SIZE);
 
-	buf[0] = (packet->len + HEADER_SIZE) / 4;
-	buf[1] = packet->ctrl;
+	dw.u8((packet->len + HEADER_SIZE) / 4);
+	dw.u8(packet->ctrl);
 
 	if (packet->dst == SMADATA2PLUS_BROADCAST) {
-		buf[2] = 0xff;
-		buf[3] = 0xff;
+		dw.u16le(0xffff);
+		dw.u32le(0xffffffff);
 		memcpy(mac_dst, MAC_BROADCAST, 6);
 	} else {
 		if (serialToMac(devices, mac_dst, packet->dst)
@@ -437,26 +446,24 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 			LOG_ERROR("device: %d not in device list!", packet->dst);
 			return -1;
 		}
-		buf[2] = 0x4e;
-		buf[3] = 0x00;
+		dw.u16le(0x004e);
+		dw.u32le(packet->dst);
 	}
-	byte_store_u32_little(&buf[4], packet->dst);
-
-	buf[9] = packet->flag;
-
-	buf[10] = 0x78;
-	buf[11] = 0x00;
-	byte_store_u32_little(&buf[12], smadata2plus_serial);
+	dw.u8(0x00);
+	dw.u8(packet->flag);
+	dw.u16le(0x0078);
+	dw.u32le(smadata2plus_serial);
+	dw.u8(0x00);
 
 	if (packet->ctrl == 0xe8)
-		buf[17] = 0;
+		dw.u8(0);
 	else
-		buf[17] = packet->flag;
+		dw.u8(packet->flag);
 
 	if (packet->start)
 		buf[20] = packet->packet_num;
 
-	byte_store_u16_little(&buf[22], transactionCntr);
+	byte::storeU16le(&buf[22], transactionCntr);
 
 	memcpy(&buf[size], packet->data, packet->len);
 
@@ -502,12 +509,12 @@ int Smadata2plus::read(Packet *packet) {
 	LOG_TRACE_HEX("read smadata2plus packet", buf, len);
 
 	packet->ctrl = buf[1];
-	packet->dst = byte_parse_u32_little(&buf[4]);
-	packet->src = byte_parse_u32_little(&buf[12]);
+	packet->dst = byte::parseU32le(&buf[4]);
+	packet->src = byte::parseU32le(&buf[12]);
 	packet->flag = buf[9];
 	packet->start = (buf[23] == 0x80) ? 1 : 0; //Fix
 	packet->packet_num = buf[20];
-	packet->transaction_cntr = byte_parse_u16_little(&buf[22]);
+	packet->transaction_cntr = byte::parseU16le(&buf[22]);
 
 	len -= HEADER_SIZE;
 	if (len < packet->len) packet->len = len;
@@ -524,6 +531,7 @@ int Smadata2plus::requestChannel( uint16_t channel, uint32_t fromIdx, uint32_t t
 	Packet packet;
 	uint8_t buf[12];
 	int ret;
+	DataWriter dw(buf, sizeof(buf));
 
 	memset(buf, 0x00, sizeof(buf));
 
@@ -535,12 +543,11 @@ int Smadata2plus::requestChannel( uint16_t channel, uint32_t fromIdx, uint32_t t
 	packet.packet_num = 0;
 	packet.start = 1;
 
-	buf[0] = 0x00;
-	buf[1] = 0x02;
-
-	byte_store_u16_little(&buf[2], channel);
-	byte_store_u32_little(&buf[4], fromIdx);
-	byte_store_u32_little(&buf[8], toIdx);
+	dw.u8(0x00);
+	dw.u8(0x02);
+	dw.u16le(channel);
+	dw.u32le(fromIdx);
+	dw.u32le(toIdx);
 
 	ret = write(&packet);
 	//inc_transaction_cntr();
@@ -604,6 +611,7 @@ int Smadata2plus::logout() {
 	Packet packet;
 	uint8_t buf[8];
 	int ret;
+	DataWriter dw(buf, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
 	packet.dst = ADDR_BROADCAST;
@@ -613,8 +621,8 @@ int Smadata2plus::logout() {
 	packet.packet_num = 0;
 	packet.start = true;
 
-	byte_store_u32_little(buf,     0xfffd010e);
-	byte_store_u32_little(buf + 4, 0xffffffff);
+	dw.u32le(0xfffd010e);
+	dw.u32le(0xffffffff);
 
 	Transaction t(this);
 	if ((ret = write(&packet)) < 0) {
@@ -661,6 +669,7 @@ int Smadata2plus::sendPassword(const char *password, Smadata2plus::UserType user
 	uint8_t buf[32];
 	int i = 0;
 	time_t cur_time;
+	DataWriter dw(buf, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
 	packet.dst = ADDR_BROADCAST;
@@ -672,15 +681,14 @@ int Smadata2plus::sendPassword(const char *password, Smadata2plus::UserType user
 
 	memset(buf, 0x00, sizeof(buf));
 
-	byte_store_u32_little(buf, 0xfffd040c);
-	buf[4] = 0x07;
-
-	byte_store_u32_little(&buf[8], 40 * 365 * 24 * 60 * 60);
-
 	cur_time = time(NULL);
 	LOG_INFO("Sending password %s at %s.", password, ctime(&cur_time));
 
-	byte_store_u32_little(&buf[12], cur_time);
+	dw.u32le(0xfffd040c);
+	dw.u8(0x07);
+	dw.skip(3);
+	dw.u32le(40 * 365 * 24 * 60 * 60);
+	dw.u32le(cur_time);
 
 	memset(&buf[20], 0x88, 12);
 	for (i = 0; (i < 12) && (password[i] != '\0'); i++) {
@@ -708,7 +716,7 @@ int Smadata2plus::ackAuth(uint32_t serial)
 	packet.packet_num  = 0;
 	packet.start = 1;
 
-	byte_store_u32_little(buf, 0xfffd040d);
+	byte::storeU32le(buf, 0xfffd040d);
 	buf[4] = 0x01;
 
 	return write(&packet);
@@ -811,17 +819,18 @@ int Smadata2plus::syncTime() {
 	packet.len = 40;
 	packet.packet_num = 0;
 	packet.start = 1;
+	DataWriter dw(buf, sizeof(buf));
 
-	byte_store_u32_little(buf, 0xf000020a);
-	byte_store_u32_little(buf + 4, 0x00236d00);
-	byte_store_u32_little(buf + 8, 0x00236d00);
-	byte_store_u32_little(buf + 12, 0x00236d00);
-	byte_store_u32_little(buf + 16, 0);
-	byte_store_u32_little(buf + 20, 0);
-	byte_store_u32_little(buf + 24, 0);
-	byte_store_u32_little(buf + 28, 0);
-	byte_store_u32_little(buf + 32, 1);
-	byte_store_u32_little(buf + 36, 1);
+	dw.u32le(0xf000020a);
+	dw.u32le(0x00236d00);
+	dw.u32le(0x00236d00);
+	dw.u32le(0x00236d00);
+	dw.u32le(0);
+	dw.u32le(0);
+	dw.u32le(0);
+	dw.u32le(0);
+	dw.u32le(1);
+	dw.u32le(1);
 
 	Transaction t(this);
 	if ((ret = write(&packet)) < 0) {
@@ -845,18 +854,18 @@ int Smadata2plus::syncTime() {
 		return -1;
 	}
 
-	time_t last_adjusted = byte_parse_u32_little(buf + 20);
+	time_t last_adjusted = byte::parseU32le(buf + 20);
 	LOG_INFO("Time last adjusted: %s", ctime(&last_adjusted));
 
-	time_t inverter_time1 = byte_parse_u32_little(buf + 16);
-	time_t inverter_time2 = byte_parse_u32_little(buf + 24);
+	time_t inverter_time1 = byte::parseU32le(buf + 16);
+	time_t inverter_time2 = byte::parseU32le(buf + 24);
 	LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
 	LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
 
-	uint32_t tz_dst = byte_parse_u32_little(buf + 28);
+	uint32_t tz_dst = byte::parseU32le(buf + 28);
 	int tz = tz_dst & 0xfffffe;
 	int dst = tz_dst & 0x1;
-	uint32_t unknown = byte_parse_u32_little(buf + 32);
+	uint32_t unknown = byte::parseU32le(buf + 32);
 	uint16_t transaction_cntr = packet.transaction_cntr;
 
 	memset(&packet, 0x00, sizeof(packet));
@@ -870,8 +879,8 @@ int Smadata2plus::syncTime() {
 	packet.packet_num = 0;
 	packet.start = 0;
 
-	byte_store_u32_little(buf,     0xf000010a);
-	byte_store_u32_little(buf + 4, 0x1);
+	byte::storeU32le(buf,     0xf000010a);
+	byte::storeU32le(buf + 4, 0x1);
 
 	if ((ret = writeReplay(&packet, transaction_cntr)) < 0) {
 		LOG_ERROR("Error writing time ack!");
@@ -886,18 +895,18 @@ int Smadata2plus::syncTime() {
 	if ((abs(cur_time - inverter_time1)) > 10) {
 		memset(&packet, 0x00, sizeof(packet));
 		memset(buf, 0x00, sizeof(buf));
+		DataWriter dw(buf, sizeof(buf));
 
-		byte_store_u32_little(buf, 0xf000020a);
-		byte_store_u32_little(buf + 4, 0x00236d00);
-		byte_store_u32_little(buf + 8, 0x00236d00);
-		byte_store_u32_little(buf + 12, 0x00236d00);
-
-		byte_store_u32_little(buf + 16, cur_time);
-		byte_store_u32_little(buf + 20, cur_time);
-		byte_store_u32_little(buf + 24, cur_time);
-		byte_store_u32_little(buf + 28, dst | tz);
-		byte_store_u32_little(buf + 32, unknown);
-		byte_store_u32_little(buf + 36, 1);
+		dw.u32le(0xf000020a);
+		dw.u32le(0x00236d00);
+		dw.u32le(0x00236d00);
+		dw.u32le(0x00236d00);
+		dw.u32le(cur_time);
+		dw.u32le(cur_time);
+		dw.u32le(cur_time);
+		dw.u32le(dst | tz);
+		dw.u32le(unknown);
+		dw.u32le(1);
 
 		packet.ctrl = CTRL_MASTER;
 		packet.dst = ADDR_BROADCAST;
@@ -1454,6 +1463,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 	Packet packet;
 	uint8_t buf[12];
 	int ret;
+	DataWriter dw(buf, sizeof(buf));
 
 	memset(buf, 0x00, sizeof(buf));
 
@@ -1467,10 +1477,10 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 	uint16_t reqObject = (user == USER) ? 0x7010 : 0x7012;
 
-	byte_store_u16_little(buf,     0x0200);
-	byte_store_u16_little(buf + 2, reqObject);
-	byte_store_u32_little(buf + 4, from);
-	byte_store_u32_little(buf + 8, to);
+	dw.u16le(0x0200);
+	dw.u16le(reqObject);
+	dw.u32le(from);
+	dw.u32le(to);
 
 	Transaction t(this);
 	if ((ret = write(&packet)) < 0) {
@@ -1496,14 +1506,14 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 		}
 
 		//check object
-		uint16_t obj = byte_parse_u16_little(answerBuf + 2);
+		uint16_t obj = byte::parseU16le(answerBuf + 2);
 		if (obj != reqObject) {
 			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObject, obj);
 			return -1;
 		}
 
-		uint32_t dataFrom = byte_parse_u32_little(answerBuf + 4);
-		uint32_t dataTo   = byte_parse_u32_little(answerBuf + 8);
+		uint32_t dataFrom = byte::parseU32le(answerBuf + 4);
+		uint32_t dataTo   = byte::parseU32le(answerBuf + 8);
 		int entrys = dataTo - dataFrom;
 		if (entrys <= 0) {
 			LOG_ERROR("Unexpected entry number: %d", entrys);

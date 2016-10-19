@@ -21,12 +21,9 @@
 #ifndef BYTE_H
 #define BYTE_H
 
-#ifdef __cplusplus
-#define __STDC_CONSTANT_MACROS
-#endif
+#include <cstdint>
 
-#include <stdint.h>
-
+//TODO: Do not use macros
 #ifdef _MSC_VER
 #   define BYTE_FAST_SWAP
 #	include <stdlib.h>
@@ -55,10 +52,6 @@
                        ((uint64_t)(X)  >> 56))
 #endif
 
-#ifdef __cplusplus
-#undef __STDC_CONSTANT_MACROS
-#endif
-
 #if defined (__GLIBC__)
 #   include <endian.h>
 #   if (__BYTE_ORDER == __LITTLE_ENDIAN)
@@ -85,13 +78,16 @@
 #   define BYTE_NO_CAST
 #endif
 
+namespace byte {
+
+
 /**
  * Parse little endian stored unsigned 16 bit integer.
  *
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint16_t byte_parse_u16_little(const uint8_t *data)
+static inline uint16_t parseU16le(const uint8_t *data)
 {
 	return (uint16_t) data[1] << 8 | (uint16_t) data[0];
 }
@@ -102,7 +98,7 @@ static inline uint16_t byte_parse_u16_little(const uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint16_t byte_parse_u16_big(const uint8_t *data)
+static inline uint16_t parseU16be(const uint8_t *data)
 {
 	return (uint16_t) data[0] << 8 | (uint16_t) data[1];
 }
@@ -113,7 +109,7 @@ static inline uint16_t byte_parse_u16_big(const uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint32_t byte_parse_u32_little(const uint8_t *data)
+static inline uint32_t parseU32le(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint32_t) data[3] << 24) | ((uint32_t) data[2] << 16) | ((uint32_t) data[1] << 8)
@@ -131,7 +127,7 @@ static inline uint32_t byte_parse_u32_little(const uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint32_t byte_parse_u32_big(const uint8_t *data)
+static inline uint32_t parseU32be(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint32_t) data[0] << 24) | ((uint32_t) data[1] << 16) | ((uint32_t) data[2] << 8)
@@ -149,7 +145,7 @@ static inline uint32_t byte_parse_u32_big(const uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint64_t byte_parse_u64_little(const uint8_t *data)
+static inline uint64_t parseU64le(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint64_t) data[7] << 56) | ((uint64_t) data[6] << 48) | ((uint64_t) data[5] << 40)
@@ -168,7 +164,7 @@ static inline uint64_t byte_parse_u64_little(const uint8_t *data)
  * @param data to parse.
  * @return parsed integer.
  */
-static inline uint64_t byte_parse_u64_big(const uint8_t *data)
+static inline uint64_t parseU64be(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint64_t) data[0] << 56) | ((uint64_t) data[1] << 48) | ((uint64_t) data[2] << 40)
@@ -187,7 +183,7 @@ static inline uint64_t byte_parse_u64_big(const uint8_t *data)
  * @param data buf to store integer.
  * @param word integer to store.
  */
-static inline void byte_store_u16_little(uint8_t *data, uint16_t word)
+static inline void storeU16le(uint8_t *data, uint16_t word)
 {
 	data[0] = (uint8_t)(word & 0xff);
 	data[1] = (uint8_t)((word >> 8) & 0xff);
@@ -199,7 +195,7 @@ static inline void byte_store_u16_little(uint8_t *data, uint16_t word)
  * @param data buf to store integer.
  * @param word integer to store.
  */
-static inline void byte_store_u16_big(uint8_t *data, uint16_t word)
+static inline void storeU16be(uint8_t *data, uint16_t word)
 {
 	data[0] = (uint8_t)((word >> 8) & 0xff);
 	data[1] = (uint8_t)(word & 0xff);
@@ -211,7 +207,7 @@ static inline void byte_store_u16_big(uint8_t *data, uint16_t word)
  * @param data buf to store integer.
  * @param dword integer to store.
  */
-static inline void byte_store_u32_little(uint8_t *data, uint32_t dword)
+static inline void storeU32le(uint8_t *data, uint32_t dword)
 {
 #ifdef BYTE_NO_CAST
 	data[3] = (uint8_t)((dword >> 24) & 0xff);
@@ -231,7 +227,7 @@ static inline void byte_store_u32_little(uint8_t *data, uint32_t dword)
  * @param data buf to store integer.
  * @param dword integer to store.
  */
-static inline void byte_store_u32_big(uint8_t *data, uint32_t dword)
+static inline void storeU32be(uint8_t *data, uint32_t dword)
 {
 #ifdef BYTE_NO_CAST
 	data[0] = (uint8_t)((dword >> 24) & 0xff);
@@ -251,7 +247,7 @@ static inline void byte_store_u32_big(uint8_t *data, uint32_t dword)
  * @param data buf to store integer.
  * @param qword integer to store.
  */
-static inline void byte_store_u64_little(uint8_t *data, uint64_t qword)
+static inline void storeU64le(uint8_t *data, uint64_t qword)
 {
 #ifdef BYTE_NO_CAST
 	data[7] = (uint8_t)((qword >> 56) & 0xff);
@@ -275,7 +271,7 @@ static inline void byte_store_u64_little(uint8_t *data, uint64_t qword)
  * @param data buf to store integer.
  * @param qword integer to store.
  */
-static inline void byte_store_u64_big(uint8_t *data, uint64_t qword)
+static inline void storeU64be(uint8_t *data, uint64_t qword)
 {
 #ifdef BYTE_NO_CAST
 	data[0] = (uint8_t)((qword >> 56) & 0xff);
@@ -293,77 +289,104 @@ static inline void byte_store_u64_big(uint8_t *data, uint64_t qword)
 #endif
 }
 
-//inline void storeLe(uint8_t *buf, uint16_t val) {
-//	byte_store_u32_little(buf, val);
-//}
-//
-//inline void storeLe(uint8_t *buf, uint32_t val) {
-//	byte_store_u32_little(buf, val);
-//}
-//
-//inline void storeLe(uint8_t *buf, uint64_t val) {
-//	byte_store_u32_little(buf, val);
-//}
-//
-//inline void store(uint8_t *buf, int8_t val) {
-//	store(static_cast<uint8_t>(val));
-//}
-//
-//inline void storeLe(uint8_t *buf, int16_t val) {
-//	storeLe(static_cast<uint16_t>(val));
-//}
-//
-//inline void storeLe(uint8_t *buf, int32_t val) {
-//	storeLe(static_cast<uint32_t>(val));
-//}
-//
-//inline void storeLe(uint8_t *buf, int64_t val) {
-//	storeLe(static_cast<uint64_t>(val));
-//}
-//
-//class DataWriter {
-//	uint8_t *buf;
-//	uint8_t *end;
-//
-//	inline DataWriter(uint8_t *buf, int len) : buf(buf), end(buf + len) {
-//		//nothing to do
-//	}
-//
-//	inline void store(uint8_t val) {
-//		assert(buf + 1 < end);
-//		*buf = val; ++buf;
-//	}
-//
-//	template<typename T>
-//	void storeLe(T val) {
-//		assert(buf + sizeof(T) < end);
-//		storeLe(val); buf += sizeof(T);
-//	}
-//};
-
-class DataReader {
+class DataWriter {
 	uint8_t *buf;
 	uint8_t *end;
+public:
+	inline DataWriter(uint8_t *buf, int len) : buf(buf), end(buf + len) {
+		//nothing to do
+	}
+
+	inline void u8(uint8_t val) {
+		assert(buf + 1 < end);
+		*buf = val; ++buf;
+	}
+
+	inline void u16le(uint16_t val) {
+		assert(buf + 2 < end);
+		storeU16le(buf, val); buf += 2;
+	}
+
+
+	inline void u32le(uint32_t val) {
+		assert(buf + 4 < end);
+		storeU32le(buf, val); buf += 4;
+	}
+
+	inline void u64le(uint64_t val) {
+		assert(buf + 8 < end);
+		storeU64le(buf, val); buf += 8;
+	}
+
+	inline void i16le(int16_t val){
+		u16le(static_cast<int16_t>(val));
+	}
+
+	inline void i32le(int32_t val) {
+		i32le(static_cast<int32_t>(val));
+	}
+
+	inline void i64le(int64_t val) {
+		i64le(static_cast<int64_t>(val));
+	}
+
+	inline void u16be(uint16_t val) {
+		assert(buf + 2 < end);
+		storeU16be(buf, val); buf += 2;
+	}
+
+
+	inline void u32be(uint32_t val) {
+		assert(buf + 4 < end);
+		storeU32be(buf, val); buf += 4;
+	}
+
+	inline void u64be(uint64_t val) {
+		assert(buf + 8 < end);
+		storeU64be(buf, val); buf += 8;
+	}
+
+	inline void i16be(int16_t val){
+		u16be(static_cast<int16_t>(val));
+	}
+
+	inline void i32be(int32_t val) {
+		i32be(static_cast<int32_t>(val));
+	}
+
+	inline void i64be(int64_t val) {
+		i64be(static_cast<int64_t>(val));
+	}
+
+	inline void skip(int len) {
+		assert(buf + len < end);
+		buf += len;
+	}
+};
+
+class DataReader {
+	const uint8_t *buf;
+	const uint8_t *end;
 
 public:
-	inline DataReader(uint8_t *buf, int len) : buf(buf), end(buf + len) {
+	inline DataReader(const uint8_t *buf, int len) : buf(buf), end(buf + len) {
 		//nothing to do
 	}
 
 	inline uint16_t u16le() {
 		assert(buf + 2 < end);
-		return byte_parse_u16_little(buf); buf += 2;
+		return parseU16le(buf); buf += 2;
 	}
 
 
 	inline uint32_t u32le() {
 		assert(buf + 4 < end);
-		return byte_parse_u32_little(buf); buf += 4;
+		return parseU32le(buf); buf += 4;
 	}
 
 	inline uint64_t u64le() {
 		assert(buf + 8 < end);
-		return byte_parse_u64_little(buf); buf += 8;
+		return parseU64le(buf); buf += 8;
 	}
 
 	inline int16_t i16le(){
@@ -380,18 +403,18 @@ public:
 
 	inline uint16_t u16be() {
 		assert(buf + 2 < end);
-		return byte_parse_u16_big(buf); buf += 2;
+		return parseU16be(buf); buf += 2;
 	}
 
 
 	inline uint32_t u32be() {
 		assert(buf + 4 < end);
-		return byte_parse_u32_big(buf); buf += 4;
+		return parseU32be(buf); buf += 4;
 	}
 
 	inline uint64_t u64be() {
 			assert(buf + 8 < end);
-			return byte_parse_u64_big(buf); buf += 8;
+			return parseU64be(buf); buf += 8;
 	}
 
 	inline int16_t i16be() {
@@ -415,9 +438,14 @@ public:
 	inline int8_t i8() {
 		return static_cast<int8_t>(u8());
 	}
+
+	inline void skip(int len) {
+		assert(buf + len < end);
+		buf += len;
+	}
 };
 
-
+} //namespace byte {
 
 #undef BYTE_NO_CAST /* not needed anymore */
 
