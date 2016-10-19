@@ -1409,7 +1409,47 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 	return 0;
 }
 
-int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserType user) {
+//struct EventData {
+//    int32_t  time;
+//	uint16_t entryId;
+//	uint16_t sysId;
+//	uint32_t serial;
+//	uint16_t eventCode;
+//	uint16_t eventFlags;
+//	uint32_t group;
+//	uint32_t unknown;
+//	uint32_t tag;
+//	uint32_t counter;
+//	uint32_t dtChange;
+//	uint32_t parameter;
+//	uint32_t newVal;
+//	uint32_t oldVal;
+//};
+
+static Smadata2plus::EventData parseEventData(uint8_t *buf, int len) {
+	Smadata2plus::EventData ed;
+
+	DataReader dr(buf, len);
+
+	ed.time       = dr.i32le();
+	ed.entryId    = dr.u16le();
+	ed.sysId      = dr.u16le();
+	ed.serial     = dr.u32le();
+	ed.eventCode  = dr.u16le();
+	ed.eventFlags = dr.u16le();
+	ed.group      = dr.u32le();
+	ed.unknown    = dr.u32le();
+	ed.tag        = dr.u32le();
+	ed.counter    = dr.u32le();
+	ed.dtChange   = dr.u32le();
+	ed.parameter  = dr.u32le();
+	ed.newVal     = dr.u32le();
+	ed.oldVal     = dr.u32le();
+
+	return ed;
+}
+
+int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserType user, std::vector<EventData> &eventData) {
 	Packet packet;
 	uint8_t buf[12];
 	int ret;
@@ -1424,7 +1464,10 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 	packet.packet_num = 0;
 	packet.start = 1;
 
-	byte_store_u32_little(buf, user == USER ? 0x70100200 : 0x70120200);
+	uint16_t reqObject = (user == USER) ? 0x7010 : 0x7012;
+
+	byte_store_u16_little(buf, 0x0200);
+	byte_store_u16_little(buf, reqObject);
 	byte_store_u32_little(buf + 4, from);
 	byte_store_u32_little(buf + 8, to);
 
@@ -1437,10 +1480,43 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 	Packet answer;
 
 	answer.data = answerBuf;
-	answer.len = sizeof(512);
+	answer.len = sizeof(answerBuf);
 
-	while ((ret = read(&packet)) > 0) {
-	}
+	std::vector<EventData> events;
+	do {
+		if ((ret = read(&packet)) < 0)  {
+			return ret;
+		}
+
+		//check data len
+		if (packet.len < 12) {
+			LOG_ERROR("Got packet with unexpected length!");
+			return -1;
+		}
+
+		//check object
+		uint16_t obj = byte_parse_u16_little(buf + 2);
+		if (obj != reqObject) {
+			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObject, obj);
+			return -1;
+		}
+
+		uint32_t dataFrom = byte_parse_u32_little(buf + 4);
+		uint32_t dataTo   = byte_parse_u32_little(buf + 8);
+		int entrys = dataTo - dataFrom;
+		if (entrys <= 0) {
+			LOG_ERROR("Unexpected entry number: %d", entrys);
+			return -1;
+		}
+
+		for (int i = 12; i + 48 < packet.len && ((i - 12) / 48 < entrys); ++i) {
+			EventData eventData = parseEventData(buf + i, 48);
+			events.push_back(eventData);
+		}
+
+	} while (packet.packet_num > 0);
+
+	eventData = events;
 
 	return 0;
 }

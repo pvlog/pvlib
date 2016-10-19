@@ -171,7 +171,24 @@ int main(int argc, char **argv) {
     time_t from = to - 24 * 60 * 60 *7;
 
 	Smadata2plus *sma = (Smadata2plus*)pvlib_protocol_handle(plant);
-	sma->readEventData(0, from, to, Smadata2plus::USER);
+
+	std::vector<Smadata2plus::EventData> eventData;
+	if (sma->readEventData(0, from, to, Smadata2plus::USER, eventData) < 0) {
+		fprintf(stderr, "Error reading event data!");
+		return -1;
+	}
+
+	printf("Got %d events\n", eventData.size());
+	for (const Smadata2plus::EventData& event : eventData) {
+		time_t et = static_cast<time_t>(event.time);
+		printf("Time  : %s\n", ctime(&et));
+		printf("Tag   : %d\n", event.tag);
+		printf("Code  : %d\n", event.eventCode);
+		printf("Flags :%d\n", event.eventFlags);
+		printf("\n");
+	}
+
+
 //    if (sma == NULL) {
 //        fprintf(stderr, "Could not get native connection handle!");
 //        return -1;

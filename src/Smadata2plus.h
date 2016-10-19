@@ -84,7 +84,24 @@ public:
 		RECORD_3
 	};
 
-	virtual int readEventData(uint32_t serial, time_t from, time_t to, UserType user);
+	struct EventData {
+	    int32_t  time;
+		uint16_t entryId;
+		uint16_t sysId;
+		uint32_t serial;
+		uint16_t eventCode;
+		uint16_t eventFlags;
+		uint32_t group;
+		uint32_t unknown;
+		uint32_t tag;
+		uint32_t counter;
+		uint32_t dtChange;
+		uint32_t parameter;
+		uint32_t newVal;
+		uint32_t oldVal;
+	};
+
+	virtual int readEventData(uint32_t serial, time_t from, time_t to, UserType user, std::vector<EventData> &evenData);
 
 private:
 	int writeReplay(const Packet *packet, uint16_t transactionCntr);

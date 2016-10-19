@@ -293,6 +293,133 @@ static inline void byte_store_u64_big(uint8_t *data, uint64_t qword)
 #endif
 }
 
+//inline void storeLe(uint8_t *buf, uint16_t val) {
+//	byte_store_u32_little(buf, val);
+//}
+//
+//inline void storeLe(uint8_t *buf, uint32_t val) {
+//	byte_store_u32_little(buf, val);
+//}
+//
+//inline void storeLe(uint8_t *buf, uint64_t val) {
+//	byte_store_u32_little(buf, val);
+//}
+//
+//inline void store(uint8_t *buf, int8_t val) {
+//	store(static_cast<uint8_t>(val));
+//}
+//
+//inline void storeLe(uint8_t *buf, int16_t val) {
+//	storeLe(static_cast<uint16_t>(val));
+//}
+//
+//inline void storeLe(uint8_t *buf, int32_t val) {
+//	storeLe(static_cast<uint32_t>(val));
+//}
+//
+//inline void storeLe(uint8_t *buf, int64_t val) {
+//	storeLe(static_cast<uint64_t>(val));
+//}
+//
+//class DataWriter {
+//	uint8_t *buf;
+//	uint8_t *end;
+//
+//	inline DataWriter(uint8_t *buf, int len) : buf(buf), end(buf + len) {
+//		//nothing to do
+//	}
+//
+//	inline void store(uint8_t val) {
+//		assert(buf + 1 < end);
+//		*buf = val; ++buf;
+//	}
+//
+//	template<typename T>
+//	void storeLe(T val) {
+//		assert(buf + sizeof(T) < end);
+//		storeLe(val); buf += sizeof(T);
+//	}
+//};
+
+class DataReader {
+	uint8_t *buf;
+	uint8_t *end;
+
+public:
+	inline DataReader(uint8_t *buf, int len) : buf(buf), end(buf + len) {
+		//nothing to do
+	}
+
+	inline uint16_t u16le() {
+		assert(buf + 2 < end);
+		return byte_parse_u16_little(buf); buf += 2;
+	}
+
+
+	inline uint32_t u32le() {
+		assert(buf + 4 < end);
+		return byte_parse_u32_little(buf); buf += 4;
+	}
+
+	inline uint64_t u64le() {
+			assert(buf + 8 < end);
+			return byte_parse_u64_little(buf); buf += 8;
+	}
+
+	inline int16_t i16le(){
+		return static_cast<int16_t>(u16le());
+	}
+
+
+	inline int32_t i32le() {
+		return static_cast<int32_t>(u32le());
+	}
+
+	inline int64_t i64le() {
+		return static_cast<int64_t>(u64le());
+	}
+
+	inline uint16_t u16be() {
+		assert(buf + 2 < end);
+		return byte_parse_u16_big(buf); buf += 2;
+	}
+
+
+	inline uint32_t u32be() {
+		assert(buf + 4 < end);
+		return byte_parse_u32_big(buf); buf += 4;
+	}
+
+	inline uint64_t u64be() {
+			assert(buf + 8 < end);
+			return byte_parse_u64_big(buf); buf += 8;
+	}
+
+	inline int16_t i16be() {
+		return static_cast<int16_t>(u16be());
+	}
+
+
+	inline int32_t i32be() {
+		return static_cast<int32_t>(u32be());
+	}
+
+	inline int64_t i64be() {
+		return static_cast<int64_t>(u64be());
+	}
+
+	inline uint8_t u8() {
+		assert(buf + 1 < end);
+		return *buf++;
+	}
+
+	inline int8_t i8() {
+		return static_cast<int8_t>(u8());
+	}
+};
+
+
+
 #undef BYTE_NO_CAST /* not needed anymore */
 
 #endif /* #ifndef BYTE_H */
