@@ -170,7 +170,7 @@ private:
 	int events;
 
 	std::queue<Packet> packets;
-	const static size_t MAX_PACKETS_SIZE = 4;
+	const static size_t MAX_PACKETS_SIZE = 40;
 };
 
 #endif /* #ifndef SMABLUETOOTH_H */
