@@ -506,6 +506,7 @@ int Smadata2plus::read(Packet *packet) {
 	packet->src = byte_parse_u32_little(&buf[12]);
 	packet->flag = buf[9];
 	packet->start = (buf[23] == 0x80) ? 1 : 0; //Fix
+	packet->packet_num = buf[20];
 	packet->transaction_cntr = byte_parse_u16_little(&buf[22]);
 
 	len -= HEADER_SIZE;
@@ -1511,7 +1512,9 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 		for (int i = 12; i + 48 < answer.len && ((i - 12) / 48 < entrys); i += 48) {
 			EventData eventData = parseEventData(buf + i, 48);
-			events.push_back(eventData);
+			if (eventData.entryId == 1) {
+				events.push_back(eventData);
+			}
 		}
 
 	} while (answer.packet_num > 0);
