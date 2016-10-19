@@ -1457,8 +1457,8 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 	memset(buf, 0x00, sizeof(buf));
 
-	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
+	packet.ctrl = CTRL_MASTER | CTRL_NO_BROADCAST;
+	packet.dst = serial;
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -1512,9 +1512,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 		for (int i = 12; i + 48 < answer.len && ((i - 12) / 48 < entrys); i += 48) {
 			EventData eventData = parseEventData(answerBuf + i, 48);
-			if (eventData.entryId == 1) {
-				events.push_back(eventData);
-			}
+			events.push_back(eventData);
 		}
 
 	} while (answer.packet_num > 0);

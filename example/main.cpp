@@ -28,152 +28,155 @@
 #include "pvlib.h"
 #include "Smadata2plus.h"
 
-static void print_usage()
-{
-    printf("Usage: pvlib MAC PASSWORD\n");
-    printf("Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
+static void print_usage() {
+	printf("Usage: pvlib MAC PASSWORD\n");
+	printf("Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
 }
 
 int main(int argc, char **argv) {
-    pvlib_plant *plant;
+	pvlib_plant *plant;
 
-    pvlib_ac ac;
-    pvlib_dc dc;
-    pvlib_stats stats;
-    pvlib_status status;
-    pvlib_inverter_info inverter_info;
+	pvlib_ac ac;
+	pvlib_dc dc;
+	pvlib_stats stats;
+	pvlib_status status;
+	pvlib_inverter_info inverter_info;
 
-    int inv_num;
-    uint32_t inv_handle;
+	int inv_num;
+	uint32_t inv_handle;
 
-    int found;
-    int i;
+	int found;
+	int i;
 
-    int con_num;
-    uint32_t con_handles[10];
-    int prot_num;
-    uint32_t prot_handles[10];
+	int con_num;
+	uint32_t con_handles[10];
+	int prot_num;
+	uint32_t prot_handles[10];
 
-    uint32_t con;
-    uint32_t prot;
+	uint32_t con;
+	uint32_t prot;
 
 //    smadata2plus_t *sma;
 
-    if (argc < 3) {
-        print_usage();
-        return -1;
-    }
+	if (argc < 3) {
+		print_usage();
+		return -1;
+	}
 
-    //Initialize pvlib
-    pvlib_init(stderr);
+	//Initialize pvlib
+	pvlib_init(stderr);
 
-    con_num = pvlib_connections(con_handles, 10);
+	con_num = pvlib_connections(con_handles, 10);
 
-    found = 0;
-    for (i = 0; i < con_num; i++) {
-        if (strcmp(pvlib_connection_name(con_handles[i]), "rfcomm") == 0) {
-            found = 1;
-            break;
-        }
-    }
+	found = 0;
+	for (i = 0; i < con_num; i++) {
+		if (strcmp(pvlib_connection_name(con_handles[i]), "rfcomm") == 0) {
+			found = 1;
+			break;
+		}
+	}
 
-    if (!found) {
-        fprintf(stderr, "connection rfcomm not available!\n");
-        return EXIT_FAILURE;
-    }
+	if (!found) {
+		fprintf(stderr, "connection rfcomm not available!\n");
+		return EXIT_FAILURE;
+	}
 
-    con = con_handles[i];
+	con = con_handles[i];
 
+	prot_num = pvlib_protocols(prot_handles, 10);
 
-    prot_num = pvlib_protocols(prot_handles, 10);
+	found = 0;
+	for (i = 0; i < prot_num; i++) {
+		if (strcmp(pvlib_protocol_name(prot_handles[i]), "smadata2plus") == 0) {
+			found = 1;
+			break;
+		}
+	}
 
-    found = 0;
-    for (i = 0; i < prot_num; i++) {
-        if (strcmp(pvlib_protocol_name(prot_handles[i]), "smadata2plus") == 0) {
-            found = 1;
-            break;
-        }
-    }
+	if (!found) {
+		fprintf(stderr, "protocol smadata2plus not available!\n");
+		return EXIT_FAILURE;
+	}
 
-    if (!found) {
-        fprintf(stderr, "protocol smadata2plus not available!\n");
-        return EXIT_FAILURE;
-    }
+	prot = prot_handles[i];
 
-    prot = prot_handles[i];
+	plant = pvlib_open(con, prot, NULL, NULL);
+	if (plant == NULL) {
+		fprintf(stderr, "Failed opening plant!\n");
+		return EXIT_FAILURE;
+	}
 
-    plant = pvlib_open(con, prot, NULL, NULL);
-    if (plant == NULL) {
-        fprintf(stderr, "Failed opening plant!\n");
-        return EXIT_FAILURE;
-    }
+	if (pvlib_connect(plant, argv[1], argv[2], NULL, NULL) < 0) {
+		fprintf(stderr, "Failed connection with plant!\n");
+		return EXIT_FAILURE;
+	}
 
-    if (pvlib_connect(plant, argv[1], argv[2], NULL, NULL) < 0) {
-        fprintf(stderr, "Failed connection with plant!\n");
-        return EXIT_FAILURE;
-    }
+	inv_num = pvlib_num_string_inverter(plant);
 
-    inv_num = pvlib_num_string_inverter(plant);
+	if (inv_num <= 0) {
+		fprintf(stderr, "no inverters found!\n");
+		return EXIT_FAILURE;
+	}
 
-    if (inv_num <= 0) {
-        fprintf(stderr, "no inverters found!\n");
-        return EXIT_FAILURE;
-    }
+	if (inv_num > 1) {
+		fprintf(stderr, "more than %d inverter, but only 1 is supported!\n",
+				inv_num);
+		return EXIT_FAILURE;
+	}
+	/*
+	 if (pvlib_device_handles(plant, &inv_handle, 1) < 0) {
+	 fprintf(stderr, "Failed getting inverter handle!\n");
+	 return EXIT_FAILURE;
+	 }
+	 */
+	if (pvlib_device_handles(plant, &inv_handle, 1) != 1) {
+		fprintf(stderr, "Error getting inverter handle\n");
+		return -1;
+	}
 
-    if (inv_num > 1) {
-        fprintf(stderr, "more than %d inverter, but only 1 is supported!\n", inv_num);
-        return EXIT_FAILURE;
-    }
-/*
-    if (pvlib_device_handles(plant, &inv_handle, 1) < 0) {
-        fprintf(stderr, "Failed getting inverter handle!\n");
-        return EXIT_FAILURE;
-    }
-*/
-    inv_handle = 0;
+	for (i = 0; i < 1; i++) {
+		if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
+			fprintf(stderr, "get live values failed!\n");
+			return -1;
+		}
 
-    for (i = 0; i < 1; i++) {
-        if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
-            fprintf(stderr, "get live values failed!\n");
-            return -1;
-        }
+		if (pvlib_get_dc_values(plant, inv_handle, &dc) < 0) {
+			fprintf(stderr, "get live values failed!\n");
+			return -1;
+		}
 
-        if (pvlib_get_dc_values(plant, inv_handle, &dc) < 0) {
-            fprintf(stderr, "get live values failed!\n");
-            return -1;
-        }
+		if (pvlib_get_stats(plant, inv_handle, &stats) < 0) {
+			fprintf(stderr, "get stats failed!\n");
+			return -1;
+		}
 
-        if (pvlib_get_stats(plant, inv_handle, &stats) < 0) {
-            fprintf(stderr, "get stats failed!\n");
-            return -1;
-        }
+		if (pvlib_get_status(plant, inv_handle, &status) < 0) {
+			fprintf(stderr, "get stats failed!\n");
+			return -1;
+		}
 
-        if (pvlib_get_status(plant, inv_handle, &status) < 0) {
-            fprintf(stderr, "get stats failed!\n");
-            return -1;
-        }
+		if (pvlib_get_inverter_info(plant, inv_handle, &inverter_info) < 0) {
+			fprintf(stderr, "get stats failed!\n");
+			return -1;
+		}
+		printf("Manufacture: %s\n", inverter_info.manufacture);
+		printf("Type: %s\n", inverter_info.type);
+		printf("Name: %s\n", inverter_info.name);
+		printf("Firmware: %s\n", inverter_info.firmware_version);
 
-        if (pvlib_get_inverter_info(plant, inv_handle, &inverter_info) < 0) {
-            fprintf(stderr, "get stats failed!\n");
-            return -1;
-        }
-        printf("Manufacture: %s\n", inverter_info.manufacture);
-        printf("Type: %s\n", inverter_info.type);
-        printf("Name: %s\n", inverter_info.name);
-        printf("Firmware: %s\n", inverter_info.firmware_version);
+		printf("status: %d %d\n", status.status, status.number);
 
-        printf("status: %d %d\n",status.status, status.number);
+		sleep(1);
+	}
 
-        sleep(1);
-    }
+	time_t to = time(0);
+	time_t from = to - 24 * 60 * 60 * 7;
 
-    time_t to   = time(0);
-    time_t from = to - 24 * 60 * 60 *7;
-
-	Smadata2plus *sma = (Smadata2plus*)pvlib_protocol_handle(plant);
+	Smadata2plus *sma = (Smadata2plus*) pvlib_protocol_handle(plant);
 
 	std::vector<Smadata2plus::EventData> eventData;
-	if (sma->readEventData(0, from, to, Smadata2plus::USER, eventData) < 0) {
+	if (sma->readEventData(inv_handle, from, to, Smadata2plus::USER, eventData)
+			< 0) {
 		fprintf(stderr, "Error reading event data!");
 		return -1;
 	}
@@ -187,7 +190,6 @@ int main(int argc, char **argv) {
 		printf("Flags :%d\n", event.eventFlags);
 		printf("\n");
 	}
-
 
 //    if (sma == NULL) {
 //        fprintf(stderr, "Could not get native connection handle!");
@@ -221,9 +223,8 @@ int main(int argc, char **argv) {
 //        smadata2plus_read_channel(sma, channel, from_index, to_index);
 //    }
 
+	pvlib_close(plant);
+	pvlib_shutdown();
 
-    pvlib_close(plant);
-    pvlib_shutdown();
-
-    return 0;
+	return 0;
 }
