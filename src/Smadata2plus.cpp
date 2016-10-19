@@ -1466,8 +1466,8 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 	uint16_t reqObject = (user == USER) ? 0x7010 : 0x7012;
 
-	byte_store_u16_little(buf, 0x0200);
-	byte_store_u16_little(buf, reqObject);
+	byte_store_u16_little(buf,     0x0200);
+	byte_store_u16_little(buf + 2, reqObject);
 	byte_store_u32_little(buf + 4, from);
 	byte_store_u32_little(buf + 8, to);
 
