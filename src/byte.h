@@ -298,23 +298,23 @@ public:
 	}
 
 	inline void u8(uint8_t val) {
-		assert(buf + 1 < end);
+		assert(buf + 1 <= end);
 		*buf = val; ++buf;
 	}
 
 	inline void u16le(uint16_t val) {
-		assert(buf + 2 < end);
+		assert(buf + 2 <= end);
 		storeU16le(buf, val); buf += 2;
 	}
 
 
 	inline void u32le(uint32_t val) {
-		assert(buf + 4 < end);
+		assert(buf + 4 <= end);
 		storeU32le(buf, val); buf += 4;
 	}
 
 	inline void u64le(uint64_t val) {
-		assert(buf + 8 < end);
+		assert(buf + 8 <= end);
 		storeU64le(buf, val); buf += 8;
 	}
 
@@ -331,18 +331,18 @@ public:
 	}
 
 	inline void u16be(uint16_t val) {
-		assert(buf + 2 < end);
+		assert(buf + 2 <= end);
 		storeU16be(buf, val); buf += 2;
 	}
 
 
 	inline void u32be(uint32_t val) {
-		assert(buf + 4 < end);
+		assert(buf + 4 <= end);
 		storeU32be(buf, val); buf += 4;
 	}
 
 	inline void u64be(uint64_t val) {
-		assert(buf + 8 < end);
+		assert(buf + 8 <= end);
 		storeU64be(buf, val); buf += 8;
 	}
 
@@ -359,7 +359,7 @@ public:
 	}
 
 	inline void skip(int len) {
-		assert(buf + len < end);
+		assert(buf + len <= end);
 		buf += len;
 	}
 };
@@ -374,18 +374,18 @@ public:
 	}
 
 	inline uint16_t u16le() {
-		assert(buf + 2 < end);
+		assert(buf + 2 <= end);
 		return parseU16le(buf); buf += 2;
 	}
 
 
 	inline uint32_t u32le() {
-		assert(buf + 4 < end);
+		assert(buf + 4 <= end);
 		return parseU32le(buf); buf += 4;
 	}
 
 	inline uint64_t u64le() {
-		assert(buf + 8 < end);
+		assert(buf + 8 <= end);
 		return parseU64le(buf); buf += 8;
 	}
 
@@ -402,18 +402,18 @@ public:
 	}
 
 	inline uint16_t u16be() {
-		assert(buf + 2 < end);
+		assert(buf + 2 <= end);
 		return parseU16be(buf); buf += 2;
 	}
 
 
 	inline uint32_t u32be() {
-		assert(buf + 4 < end);
+		assert(buf + 4 <= end);
 		return parseU32be(buf); buf += 4;
 	}
 
 	inline uint64_t u64be() {
-			assert(buf + 8 < end);
+			assert(buf + 8 <= end);
 			return parseU64be(buf); buf += 8;
 	}
 
@@ -440,7 +440,7 @@ public:
 	}
 
 	inline void skip(int len) {
-		assert(buf + len < end);
+		assert(buf + len <= end);
 		buf += len;
 	}
 };
