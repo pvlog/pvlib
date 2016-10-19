@@ -1484,7 +1484,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 	std::vector<EventData> events;
 	do {
-		if ((ret = read(&packet)) < 0)  {
+		if ((ret = read(&answer)) < 0)  {
 			return ret;
 		}
 
