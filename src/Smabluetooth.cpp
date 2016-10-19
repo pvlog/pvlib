@@ -288,6 +288,12 @@ Smabluetooth::Smabluetooth(Connection *con) :
 
 }
 
+Smabluetooth::~Smabluetooth() {
+	if (connected) {
+		disconnect();
+	}
+}
+
 int Smabluetooth::connect() {
 	//start thread
 	quit.store(false);

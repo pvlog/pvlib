@@ -62,7 +62,7 @@ public:
 	/**
 	 * Close smabluetooth.
 	 */
-	virtual ~Smabluetooth() {};
+	virtual ~Smabluetooth();
 
 	/**
 	 * Send data.
@@ -153,7 +153,7 @@ private:
 
 
 	Connection *con;
-	int connected;
+	bool connected;
 
 	State state;
 	int num_devices;
