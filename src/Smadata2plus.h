@@ -110,9 +110,9 @@ private:
 
 	int read(Packet *packet);
 
-	int requestChannel(uint16_t channel, uint32_t fromIdx, uint32_t toIdx);
+	int requestChannel(uint32_t serial, uint16_t channel, uint32_t fromIdx, uint32_t toIdx);
 
-	int readRecords(uint16_t object, uint32_t from_idx, uint32_t to_idx,
+	int readRecords(uint32_t serial, uint16_t object, uint32_t from_idx, uint32_t to_idx,
 			Record *records, int *len, RecordType type);
 
 	int logout();

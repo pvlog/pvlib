@@ -57,7 +57,7 @@ static const int  CTRL_NO_BROADCAST = 1 << 6;
 static const int CTRL_UNKNOWN = 1 << 3;
 
 /* address */
-#define ADDR_BROADCAST 0xffffffff
+#define SERIAL_BROADCAST 0xffffffff
 static const uint8_t MAC_BROADCAST[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 static const int VOLTAGE_DIVISOR = 100;     //to volts
@@ -527,7 +527,7 @@ int Smadata2plus::read(Packet *packet) {
 /*
  * Request a channel.
  */
-int Smadata2plus::requestChannel( uint16_t channel, uint32_t fromIdx, uint32_t toIdx) {
+int Smadata2plus::requestChannel(uint32_t serial, uint16_t channel, uint32_t fromIdx, uint32_t toIdx) {
 	Packet packet;
 	uint8_t buf[12];
 	int ret;
@@ -536,7 +536,7 @@ int Smadata2plus::requestChannel( uint16_t channel, uint32_t fromIdx, uint32_t t
 	memset(buf, 0x00, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
+	packet.dst = serial;
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -555,7 +555,8 @@ int Smadata2plus::requestChannel( uint16_t channel, uint32_t fromIdx, uint32_t t
 	return ret;
 }
 
-int Smadata2plus::readRecords(uint16_t object,
+int Smadata2plus::readRecords(uint32_t serial,
+                              uint16_t object,
                               uint32_t from_idx,
                               uint32_t to_idx,
                               Record *records,
@@ -569,7 +570,7 @@ int Smadata2plus::readRecords(uint16_t object,
 
 	//begin_transaction(sma);
 
-	if ((ret = requestChannel(object, from_idx, to_idx)) < 0) {
+	if ((ret = requestChannel(serial, object, from_idx, to_idx)) < 0) {
 		LOG_ERROR("Failed requesting %04X %04X % 04X", object, from_idx, to_idx);
 		//end_transaction(sma);
 		return ret;
@@ -614,7 +615,7 @@ int Smadata2plus::logout() {
 	DataWriter dw(buf, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
+	packet.dst = SERIAL_BROADCAST;
 	packet.flag = 0x03;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -643,7 +644,7 @@ int Smadata2plus::discoverDevices(int device_num)
 
 	Transaction t(this);
 
-	if (requestChannel(0, 0, 0) < 0) {
+	if (requestChannel(SERIAL_BROADCAST, 0, 0, 0) < 0) {
 		return -1;
 	}
 
@@ -672,7 +673,7 @@ int Smadata2plus::sendPassword(const char *password, Smadata2plus::UserType user
 	DataWriter dw(buf, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
+	packet.dst = SERIAL_BROADCAST;
 	packet.flag = 0x01;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -813,7 +814,7 @@ int Smadata2plus::syncTime() {
 	int ret;
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = ADDR_BROADCAST;
+	packet.dst = SERIAL_BROADCAST;
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = 40;
@@ -909,7 +910,7 @@ int Smadata2plus::syncTime() {
 		dw.u32le(1);
 
 		packet.ctrl = CTRL_MASTER;
-		packet.dst = ADDR_BROADCAST;
+		packet.dst = SERIAL_BROADCAST;
 		packet.flag = 0x00;
 		packet.data = buf;
 		packet.len = sizeof(buf);
@@ -1039,7 +1040,7 @@ int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 	pvlib_init_ac(ac);
 
 	do {
-		ret = readRecords(0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
+		ret = readRecords(id, 0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading dc spot data  failed!");
 			return ret;
@@ -1146,7 +1147,7 @@ int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 	pvlib_init_dc(dc);
 
 	do {
-		ret = readRecords(0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
+		ret = readRecords(id, 0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading dc spot data  failed!");
 			return ret;
@@ -1226,7 +1227,7 @@ int Smadata2plus::readStats(uint32_t id, pvlib_stats *stats) {
 	pvlib_init_stats(stats);
 
 	do {
-		ret = readRecords(0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
+		ret = readRecords(id, 0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading stats  failed!");
 			return ret;
@@ -1273,7 +1274,7 @@ int Smadata2plus::readStatus(uint32_t id, pvlib_status *status)
 	int num_recs = 1;
 
 	do {
-		ret = readRecords(0x5180, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
+		ret = readRecords(SERIAL_BROADCAST, 0x5180, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading inverter status  failed!");
 			return ret;
@@ -1355,7 +1356,7 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 	int num_recs = 10;
 
 	do {
-		ret = readRecords(0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
+		ret = readRecords(id, 0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
 			LOG_ERROR("Reading inverter info  failed!");
 			return ret;
