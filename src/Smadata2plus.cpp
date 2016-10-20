@@ -1466,7 +1466,7 @@ static Smadata2plus::TotalDayData parseTotalDayData(uint8_t *buf, int len) {
 	DataReader dr(buf, len);
 
 	tdd.time       = dr.u32le();
-	tdd.totalYield = dr.u64le();
+	tdd.totalYield = dr.i64le();
 
 	return tdd;
 }
@@ -1639,7 +1639,7 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 	}
 
 	int cnt = 0;
-	for (int i = 1; i < dayData.size(); ++i) {
+	for (size_t i = 1; i < dayData.size(); ++i) {
 		const TotalDayData &prev = dayData.at(i - 1);
 		const TotalDayData &cur  = dayData.at(i);
 

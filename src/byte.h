@@ -375,18 +375,21 @@ public:
 
 	inline uint16_t u16le() {
 		assert(buf + 2 <= end);
-		return parseU16le(buf); buf += 2;
+		uint16_t ret = parseU16le(buf); buf += 2;
+		return ret;
 	}
 
 
 	inline uint32_t u32le() {
 		assert(buf + 4 <= end);
-		return parseU32le(buf); buf += 4;
+		uint32_t ret = parseU32le(buf); buf += 4;
+		return ret;
 	}
 
 	inline uint64_t u64le() {
 		assert(buf + 8 <= end);
-		return parseU64le(buf); buf += 8;
+		uint64_t ret = parseU64le(buf); buf += 8;
+		return ret;
 	}
 
 	inline int16_t i16le(){
@@ -403,18 +406,21 @@ public:
 
 	inline uint16_t u16be() {
 		assert(buf + 2 <= end);
-		return parseU16be(buf); buf += 2;
+		uint16_t ret = parseU16be(buf); buf += 2;
+		return ret;
 	}
 
 
 	inline uint32_t u32be() {
 		assert(buf + 4 <= end);
-		return parseU32be(buf); buf += 4;
+		uint32_t ret = parseU32be(buf); buf += 4;
+		return ret;
 	}
 
 	inline uint64_t u64be() {
-			assert(buf + 8 <= end);
-			return parseU64be(buf); buf += 8;
+		assert(buf + 8 <= end);
+		uint64_t ret = parseU64be(buf); buf += 8;
+		return ret;
 	}
 
 	inline int16_t i16be() {
