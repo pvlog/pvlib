@@ -1634,8 +1634,9 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 		return 0;
 	}
 
+	*dayYield = (pvlib_day_yield*)malloc(sizeof(pvlib_day_yield) * dayData.size());
 	pvlib_day_yield *result = *dayYield;
-	result = (pvlib_day_yield*)malloc(sizeof(pvlib_day_yield) * dayData.size());
+
 	if (result == nullptr) {
 		return -1;
 	}
