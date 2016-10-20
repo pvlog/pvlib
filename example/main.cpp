@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
 	printf("Got %d days\n", dayData.size());
 	for (const Smadata2plus::TotalDayData& day : dayData) {
 		time_t et = static_cast<time_t>(day.time);
-		printf("Time: %s Total: %d Day: %d\n", ctime(&et), (int32_t)day.totalYield, (int32_t)day.dayYield);
+		printf("Time: %s Total: %d\n", ctime(&et), (int32_t)day.totalYield);
 	}
 
 //    if (sma == NULL) {

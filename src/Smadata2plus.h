@@ -103,7 +103,6 @@ public:
 
 	struct TotalDayData {
 		int32_t time;
-		int64_t dayYield;   //in Wh
 		int64_t totalYield; //in Wh
 	};
 

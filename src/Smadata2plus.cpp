@@ -1466,8 +1466,7 @@ static Smadata2plus::TotalDayData parseTotalDayData(uint8_t *buf, int len) {
 	DataReader dr(buf, len);
 
 	tdd.time       = dr.u32le();
-	tdd.totalYield = dr.u32le();
-	tdd.dayYield   = dr.u32le();
+	tdd.totalYield = dr.u64le();
 
 	return tdd;
 }
@@ -1603,8 +1602,8 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 			return -1;
 		}
 
-		for (int i = 12; i + 20 < packet.len && ((i - 12) / 20 < entrys); i += 20) {
-			TotalDayData day = parseTotalDayData(buf + i, 20);
+		for (int i = 12; i + 12 < packet.len && ((i - 12) / 12 < entrys); i += 12) {
+			TotalDayData day = parseTotalDayData(buf + i, 12);
 			if ((from <= day.time) && (day.time <= to)) {
 				//some or all inverter ignore the from and to time stamps and
 				//return the complete event history, so filter know
