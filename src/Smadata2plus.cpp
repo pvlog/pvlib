@@ -1627,10 +1627,7 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 		return ret;
 	}
 
-	std::vector<TotalDayData>::const_iterator cur = dayData.begin();
-	std::vector<TotalDayData>::const_iterator last = dayData.end();
-
-	if (cur == last) {
+	if (dayData.size() < 2) {
 		return 0;
 	}
 
@@ -1641,20 +1638,21 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 		return -1;
 	}
 
-	std::vector<TotalDayData>::const_iterator prev = cur;
 	int cnt = 0;
-	while (++cur != last) {
-		if (cur->time - prev->time >= 48 * 60 * 60) {
+	for (int i = 1; i < dayData.size(); ++i) {
+		const TotalDayData &prev = dayData.at(i - 1);
+		const TotalDayData &cur  = dayData.at(i);
+
+		if (cur.time - prev.time >= 48 * 60 * 60) {
 			LOG_ERROR("Gap between two values! Can not calculate day yield!");
 			continue;
 		}
 
-		int64_t dayYield = cur->totalYield - prev->totalYield;
+		int64_t dayYield = cur.totalYield - prev.totalYield;
 
-		result[cnt].dayYield = dayYield;
-		result[cnt].date     = cur->time;
+		result[i - 1].dayYield = dayYield;
+		result[i - 1].date     = cur.time;
 
-		prev = cur;
 		++cnt;
 	}
 
