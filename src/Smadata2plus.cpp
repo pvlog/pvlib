@@ -1460,7 +1460,19 @@ static Smadata2plus::EventData parseEventData(uint8_t *buf, int len) {
 	return ed;
 }
 
-int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserType user, std::vector<EventData> &eventData) {
+static Smadata2plus::TotalDayData parseTotalDayData(uint8_t *buf, int len) {
+	Smadata2plus::TotalDayData tdd;
+
+	DataReader dr(buf, len);
+
+	tdd.time       = dr.u32le();
+	tdd.totalYield = dr.u32le();
+	tdd.dayYield   = dr.u32le();
+
+	return tdd;
+}
+
+int Smadata2plus::requestArchiveData(uint32_t serial, uint16_t obj, time_t from, time_t to) {
 	Packet packet;
 	uint8_t buf[12];
 	int ret;
@@ -1476,59 +1488,133 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 	packet.packet_num = 0;
 	packet.start = 1;
 
-	uint16_t reqObject = (user == USER) ? 0x7010 : 0x7012;
+	uint16_t reqObject = obj;//(user == USER) ? 0x7010 : 0x7012;
 
 	dw.u16le(0x0200);
 	dw.u16le(reqObject);
 	dw.u32le(from);
 	dw.u32le(to);
 
-	Transaction t(this);
 	if ((ret = write(&packet)) < 0) {
 		return ret;
 	}
 
-	uint8_t answerBuf[512];
-	Packet answer;
+	return 0;
+}
 
-	answer.data = answerBuf;
-	answer.len = sizeof(answerBuf);
+int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserType user, std::vector<EventData> &eventData) {
+	int ret;
+	uint16_t reqObj = (user == USER) ? 0x7010 : 0x7012;
+
+	Transaction t(this);
+	if ((ret = requestArchiveData(serial, reqObj, from, to)) < 0) {
+		return ret;
+	}
+
+	uint8_t buf[512];
+	Packet packet;
+
+	packet.data = buf;
+	packet.len = sizeof(buf);
 
 	std::vector<EventData> events;
 	do {
-		if ((ret = read(&answer)) < 0)  {
+		if ((ret = read(&packet)) < 0)  {
 			return ret;
 		}
 
 		//check data len
-		if (answer.len < 12) {
+		if (packet.len < 12) {
 			LOG_ERROR("Got packet with unexpected length!");
 			return -1;
 		}
 
 		//check object
-		uint16_t obj = byte::parseU16le(answerBuf + 2);
-		if (obj != reqObject) {
-			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObject, obj);
+		uint16_t obj = byte::parseU16le(buf + 2);
+		if (obj != reqObj) {
+			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObj, obj);
 			return -1;
 		}
 
-		uint32_t dataFrom = byte::parseU32le(answerBuf + 4);
-		uint32_t dataTo   = byte::parseU32le(answerBuf + 8);
+		uint32_t dataFrom = byte::parseU32le(buf + 4);
+		uint32_t dataTo   = byte::parseU32le(buf + 8);
 		int entrys = dataTo - dataFrom;
 		if (entrys <= 0) {
 			LOG_ERROR("Unexpected entry number: %d", entrys);
 			return -1;
 		}
 
-		for (int i = 12; i + 48 < answer.len && ((i - 12) / 48 < entrys); i += 48) {
-			EventData eventData = parseEventData(answerBuf + i, 48);
-			events.push_back(eventData);
+		for (int i = 12; i + 48 < packet.len && ((i - 12) / 48 < entrys); i += 48) {
+			EventData eventData = parseEventData(buf + i, 48);
+			if (from <= eventData.time <= to) {
+				//some or all inverter ignore the from and to time stamps and
+				//return the complete event history, so filter know
+				events.push_back(eventData);
+			}
 		}
 
-	} while (answer.packet_num > 0);
+	} while (packet.packet_num > 0);
 
 	eventData = events;
+
+	return 0;
+}
+
+int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
+		time_t to, std::vector<TotalDayData> &totalDayData) {
+	int ret;
+
+	uint16_t reqObj = 0x7020;
+	Transaction t(this);
+	if ((ret = requestArchiveData(serial, reqObj, from, to)) < 0) {
+		return ret;
+	}
+
+	uint8_t buf[512];
+	Packet packet;
+
+	packet.data = buf;
+	packet.len = sizeof(buf);
+
+	std::vector<TotalDayData> dayData;
+	do {
+		if ((ret = read(&packet)) < 0)  {
+			return ret;
+		}
+
+		//check data len
+		if (packet.len < 12) {
+			LOG_ERROR("Got packet with unexpected length!");
+			return -1;
+		}
+
+		//check object
+		uint16_t obj = byte::parseU16le(buf + 2);
+		if (obj != reqObj) {
+			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObj, obj);
+			return -1;
+		}
+
+		uint32_t dataFrom = byte::parseU32le(buf + 4);
+		uint32_t dataTo   = byte::parseU32le(buf + 8);
+		int entrys = dataTo - dataFrom;
+		if (entrys <= 0) {
+			LOG_ERROR("Unexpected entry number: %d", entrys);
+			return -1;
+		}
+
+		for (int i = 12; i + 20 < packet.len && ((i - 12) / 20 < entrys); i += 20) {
+			TotalDayData day = parseTotalDayData(buf + i, 20);
+			if (from <= day.time <= to) {
+				//some or all inverter ignore the from and to time stamps and
+				//return the complete event history, so filter know
+				dayData.push_back(day);
+			}
+		}
+
+	} while (packet.packet_num > 0);
+
+	totalDayData = dayData;
 
 	return 0;
 }

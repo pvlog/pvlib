@@ -184,11 +184,20 @@ int main(int argc, char **argv) {
 	printf("Got %d events\n", eventData.size());
 	for (const Smadata2plus::EventData& event : eventData) {
 		time_t et = static_cast<time_t>(event.time);
-		printf("Time  : %s\n", ctime(&et));
-		printf("Tag   : %d\n", event.tag);
-		printf("Code  : %d\n", event.eventCode);
-		printf("Flags :%d\n", event.eventFlags);
-		printf("\n");
+		printf("Time: %s Tag: %d Code: %d Flags: %d\n", ctime(&et), event.tag,
+				event.eventCode, event.eventFlags);
+	}
+
+	std::vector<Smadata2plus::TotalDayData> dayData;
+	if (sma->readTotalDayData(inv_handle, 0, to, dayData) < 0) {
+		fprintf(stderr, "Error reading day data!");
+		return -1;
+	}
+
+	printf("Got %d days\n", dayData.size());
+	for (const Smadata2plus::TotalDayData& day : dayData) {
+		time_t et = static_cast<time_t>(day.time);
+		printf("Time: %s Total: %d Day: %d\n", ctime(&et), (int32_t)day.totalYield, (int32_t)day.dayYield);
 	}
 
 //    if (sma == NULL) {

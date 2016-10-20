@@ -101,7 +101,17 @@ public:
 		uint32_t oldVal;
 	};
 
-	virtual int readEventData(uint32_t serial, time_t from, time_t to, UserType user, std::vector<EventData> &evenData);
+	struct TotalDayData {
+		int32_t time;
+		int64_t dayYield;   //in Wh
+		int64_t totalYield; //in Wh
+	};
+
+	virtual int readEventData(uint32_t serial, time_t from, time_t to,
+			UserType user, std::vector<EventData> &evenData);
+
+	virtual int readTotalDayData(uint32_t serial, time_t from,
+			time_t to, std::vector<TotalDayData> &eventData);
 
 private:
 	int writeReplay(const Packet *packet, uint16_t transactionCntr);
@@ -114,6 +124,8 @@ private:
 
 	int readRecords(uint32_t serial, uint16_t object, uint32_t from_idx, uint32_t to_idx,
 			Record *records, int *len, RecordType type);
+
+	int requestArchiveData(uint32_t serial, uint16_t objId, time_t from, time_t to);
 
 	int logout();
 
