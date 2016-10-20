@@ -1654,6 +1654,7 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 		result[cnt].dayYield = dayYield;
 		result[cnt].date     = cur->time;
 
+		prev = cur;
 		++cnt;
 	}
 
