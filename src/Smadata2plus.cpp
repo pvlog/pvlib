@@ -1645,7 +1645,7 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 	int cnt = 0;
 	while (++cur != last) {
 		if (cur->time - prev->time >= 48 * 60 * 60) {
-			//more than one day ignore
+			LOG_ERROR("Gap between two values! Can not calculate day yield!");
 			continue;
 		}
 
