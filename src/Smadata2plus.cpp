@@ -1537,7 +1537,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 		uint32_t dataFrom = byte::parseU32le(buf + 4);
 		uint32_t dataTo   = byte::parseU32le(buf + 8);
-		int entrys = dataTo - dataFrom;
+		int entrys = dataTo - dataFrom + 1;
 		if (entrys <= 0) {
 			LOG_ERROR("Unexpected entry number: %d", entrys);
 			return -1;
@@ -1596,7 +1596,7 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 
 		uint32_t dataFrom = byte::parseU32le(buf + 4);
 		uint32_t dataTo   = byte::parseU32le(buf + 8);
-		int entrys = dataTo - dataFrom;
+		int entrys = dataTo - dataFrom + 1;
 		if (entrys <= 0) {
 			LOG_ERROR("Unexpected entry number: %d", entrys);
 			return -1;
@@ -1650,8 +1650,8 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 
 		int64_t dayYield = cur.totalYield - prev.totalYield;
 
-		result[i - 1].dayYield = dayYield;
-		result[i - 1].date     = cur.time;
+		result[cnt].dayYield = dayYield;
+		result[cnt].date     = cur.time;
 
 		++cnt;
 	}
