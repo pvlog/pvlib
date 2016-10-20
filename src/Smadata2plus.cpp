@@ -1543,7 +1543,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 			return -1;
 		}
 
-		for (int i = 12; i + 48 < packet.len && ((i - 12) / 48 < entrys); i += 48) {
+		for (int i = 12; i + 48 <= packet.len && ((i - 12) / 48 < entrys); i += 48) {
 			EventData eventData = parseEventData(buf + i, 48);
 			if ((from <= eventData.time) && ( eventData.time <= to)) {
 				//some or all inverter ignore the from and to time stamps and
@@ -1602,7 +1602,7 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 			return -1;
 		}
 
-		for (int i = 12; i + 12 < packet.len && ((i - 12) / 12 < entrys); i += 12) {
+		for (int i = 12; i + 12 <= packet.len && ((i - 12) / 12 < entrys); i += 12) {
 			TotalDayData day = parseTotalDayData(buf + i, 12);
 			if ((from <= day.time) && (day.time <= to)) {
 				//some or all inverter ignore the from and to time stamps and
