@@ -513,7 +513,7 @@ int Smadata2plus::read(Packet *packet) {
 	packet->src = byte::parseU32le(&buf[12]);
 	packet->flag = buf[9];
 	packet->start = (buf[23] == 0x80) ? 1 : 0; //Fix
-	packet->packet_num = buf[20];
+	packet->packet_num = byte::parseU16le(buf + 20);
 	packet->transaction_cntr = byte::parseU16le(&buf[22]);
 
 	len -= HEADER_SIZE;
