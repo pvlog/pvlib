@@ -108,6 +108,10 @@ public:
 
 	virtual int readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_info) = 0;
 
+	//archive support
+	virtual int readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield) = 0;
+
+
 	static const std::vector<const ProtocolInfo*> availableProtocols;
 };
 

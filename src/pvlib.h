@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <time.h>
 
 #if defined __cplusplus
 extern "C" {
@@ -106,6 +107,11 @@ typedef struct pvlib_inverter_info {
 	char name[64];
 	char firmware_version[64];
 } pvlib_inverter_info;
+
+typedef struct pvlib_day_yield {
+	time_t  date;
+	int64_t dayYield;
+} pvlib_day_yield;
 
 /**
  * Initialize pvlib.
@@ -280,6 +286,20 @@ int pvlib_get_status(pvlib_plant *plant, uint32_t id, pvlib_status *status);
  * @return negative on failue 0 on success.
  */
 int pvlib_get_inverter_info(pvlib_plant *plant, uint32_t id, pvlib_inverter_info *inverter_info);
+
+
+/**
+ * Read day yield archive data. Yield is unity is Wh.
+ *
+ * @param plant plant handle
+ * @param id inverter id
+ * @param from date to begin with. 0 means read all available data
+ * @param to date to end with
+ * @param[out] archive values. Need to befreed after use.
+ *
+ * @return number of dayYied entries on success or negative on failure.
+ */
+int pvlib_get_day_yield(pvlib_plant *plant, uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield);
 
 ///**
 // * Returns protocol handle.

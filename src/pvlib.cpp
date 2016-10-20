@@ -162,6 +162,10 @@ int pvlib_get_inverter_info(pvlib_plant *plant, uint32_t id, pvlib_inverter_info
 	return plant->protocol->readInverterInfo(id, inverter_info);
 }
 
+int pvlib_get_day_yield(pvlib_plant *plant, uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield) {
+	return plant->protocol->readDayYield(id, from, to, dayYield);
+}
+
 void *pvlib_protocol_handle(pvlib_plant *plant) {
 	return plant->protocol;
 }

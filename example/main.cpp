@@ -172,33 +172,48 @@ int main(int argc, char **argv) {
 	time_t to = time(0);
 	time_t from = to - 24 * 60 * 60 * 7;
 
-	Smadata2plus *sma = (Smadata2plus*) pvlib_protocol_handle(plant);
-
-	std::vector<Smadata2plus::EventData> eventData;
-	if (sma->readEventData(inv_handle, from, to, Smadata2plus::USER, eventData)
-			< 0) {
-		fprintf(stderr, "Error reading event data!");
+	int days = 0;
+	pvlib_day_yield *dayYield;
+	if ((days = pvlib_get_day_yield(plant, inv_handle, from, to, &dayYield)) < 0) {
+		fprintf(stderr, "get day yield failed\n");
 		return -1;
+
 	}
 
-	printf("Got %d events\n", eventData.size());
-	for (const Smadata2plus::EventData& event : eventData) {
-		time_t et = static_cast<time_t>(event.time);
-		printf("Time: %s Tag: %d Code: %d Flags: %d\n", ctime(&et), event.tag,
-				event.eventCode, event.eventFlags);
+	for (int i = 0; i < days; ++i) {
+		printf("%s: %d\n", ctime(&dayYield[i].date), (int32_t)dayYield[i].dayYield);
 	}
 
-	std::vector<Smadata2plus::TotalDayData> dayData;
-	if (sma->readTotalDayData(inv_handle, 0, to, dayData) < 0) {
-		fprintf(stderr, "Error reading day data!");
-		return -1;
-	}
-
-	printf("Got %d days\n", dayData.size());
-	for (const Smadata2plus::TotalDayData& day : dayData) {
-		time_t et = static_cast<time_t>(day.time);
-		printf("Time: %s Total: %d\n", ctime(&et), (int32_t)day.totalYield);
-	}
+//	time_t to = time(0);
+//	time_t from = to - 24 * 60 * 60 * 7;
+//
+//	Smadata2plus *sma = (Smadata2plus*) pvlib_protocol_handle(plant);
+//
+//	std::vector<Smadata2plus::EventData> eventData;
+//	if (sma->readEventData(inv_handle, from, to, Smadata2plus::USER, eventData)
+//			< 0) {
+//		fprintf(stderr, "Error reading event data!");
+//		return -1;
+//	}
+//
+//	printf("Got %d events\n", eventData.size());
+//	for (const Smadata2plus::EventData& event : eventData) {
+//		time_t et = static_cast<time_t>(event.time);
+//		printf("Time: %s Tag: %d Code: %d Flags: %d\n", ctime(&et), event.tag,
+//				event.eventCode, event.eventFlags);
+//	}
+//
+//	std::vector<Smadata2plus::TotalDayData> dayData;
+//	if (sma->readTotalDayData(inv_handle, 0, to, dayData) < 0) {
+//		fprintf(stderr, "Error reading day data!");
+//		return -1;
+//	}
+//
+//	printf("Got %d days\n", dayData.size());
+//	for (const Smadata2plus::TotalDayData& day : dayData) {
+//		time_t et = static_cast<time_t>(day.time);
+//		printf("Time: %s Total: %d\n", ctime(&et), (int32_t)day.totalYield);
+//	}
 
 //    if (sma == NULL) {
 //        fprintf(stderr, "Could not get native connection handle!");

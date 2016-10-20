@@ -61,6 +61,8 @@ public:
 
 	virtual int readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_info) override;
 
+	virtual int readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield) override;
+
 	struct Device {
 		uint32_t serial;
 		char     mac[6];

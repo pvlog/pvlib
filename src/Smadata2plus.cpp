@@ -1618,6 +1618,47 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 	return 0;
 }
 
+int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield) {
+	int ret;
+
+	std::vector<TotalDayData> dayData;
+
+	if ((ret = readTotalDayData(id, from, to, dayData)) < 0) {
+		return ret;
+	}
+
+	std::vector<TotalDayData>::const_iterator cur = dayData.begin();
+	std::vector<TotalDayData>::const_iterator last = dayData.end();
+
+	if (cur == last) {
+		return 0;
+	}
+
+	pvlib_day_yield *result = *dayYield;
+	result = (pvlib_day_yield*)malloc(sizeof(pvlib_day_yield) * dayData.size());
+	if (result == nullptr) {
+		return -1;
+	}
+
+	std::vector<TotalDayData>::const_iterator prev = cur;
+	int cnt = 0;
+	while (++cur != last) {
+		if (cur->time - prev->time >= 48 * 60 * 60) {
+			//more than one day ignore
+			continue;
+		}
+
+		int64_t dayYield = cur->totalYield - prev->totalYield;
+
+		result[cnt].dayYield = dayYield;
+		result[cnt].date     = cur->time;
+
+		++cnt;
+	}
+
+	return cnt;
+}
+
 int Smadata2plus::inverterNum() {
 	return devices.size();
 }
