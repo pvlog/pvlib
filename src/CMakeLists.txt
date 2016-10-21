@@ -7,7 +7,7 @@ set(src
 	Smanet.cpp
 	Connection.cpp
 	pvlib.cpp
-	resources.c
+	resources.cpp
 )
 	
 #add_library(pvlib SHARED ${src})

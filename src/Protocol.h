@@ -111,6 +111,7 @@ public:
 	//archive support
 	virtual int readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield) = 0;
 
+	virtual int readEvents(uint32_t id, time_t from, time_t to, pvlib_event **events) = 0;
 
 	static const std::vector<const ProtocolInfo*> availableProtocols;
 };

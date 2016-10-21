@@ -184,6 +184,19 @@ int main(int argc, char **argv) {
 		printf("%s: %d\n", ctime(&dayYield[i].date), (int32_t)dayYield[i].dayYield);
 	}
 
+	pvlib_event *events;
+	int eventNum;
+	from = 0;
+	if ((eventNum = pvlib_get_events(plant, inv_handle, from, to, &events)) < 0) {
+		fprintf(stderr, "get day events failed\n");
+		return -1;
+
+	}
+
+	for (int i = 0; i < eventNum; ++i) {
+		printf("%s: %s (%d)\n", ctime(&events[i].time), events[i].message, events[i].value);
+	}
+
 //	time_t to = time(0);
 //	time_t from = to - 24 * 60 * 60 * 7;
 //

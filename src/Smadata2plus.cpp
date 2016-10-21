@@ -28,6 +28,7 @@
 #include <thread>
 #include <cinttypes>
 #include <algorithm>
+#include <fstream>
 
 #include <Protocol.h>
 #include <Smabluetooth.h>
@@ -331,6 +332,41 @@ static int parseChannelRecords(const uint8_t *buf,
 	return 0;
 }
 
+
+int Smadata2plus::readTags(const std::string& file) {
+	std::ifstream infile(file);
+
+	if (!infile.is_open()) {
+		LOG_ERROR("Could not open file: %s", file.c_str());
+		return -1;
+	}
+
+	std::string line;
+	while (std::getline(infile, line)) {
+		std::size_t valuePos = line.find('=');
+		if (valuePos == std::string::npos || valuePos + 1 <= line.length()) {
+			LOG_ERROR("Invalid line: %s", line.c_str());
+			continue;
+		}
+
+		std::string tagKey = line.substr(0, valuePos);
+		std::string value  = line.substr(valuePos + 1);
+
+		std::size_t shortDescEnd = value.find(';');
+		if (shortDescEnd == std::string::npos || shortDescEnd + 1 >= value.size()) {
+			LOG_ERROR("Invalid line: %s", line.c_str());
+			continue;
+		}
+
+		std::string shortDesc = value.substr(0, shortDescEnd);
+		std::string longDesc  = value.substr(shortDescEnd + 1);
+
+		int32_t key = std::stoi(tagKey);
+		tagMap.emplace(key, Tag(shortDesc, longDesc));
+	}
+
+	return 0;
+}
 
 //static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message)
 //{
@@ -935,6 +971,10 @@ Smadata2plus::Smadata2plus(Connection *con) :
 		transaction_cntr(TRANSACTION_CNTR_START),
 		transaction_active(false) {
 
+	std::string tagFile = std::string(resources_path()) + '/' + "en_US_tags.txt";
+	if (readTags(tagFile) < 0) {
+		LOG_WARNING("Could not read tags");
+	}
 }
 
 int Smadata2plus::connect(const char *password, const void *param)
@@ -1657,6 +1697,37 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 	}
 
 	return cnt;
+}
+
+int Smadata2plus::readEvents(uint32_t id, time_t from, time_t to, pvlib_event** events) {
+	std::vector<EventData> eventData;
+	int ret;
+
+	if ((ret = readEventData(id, from, to, USER, eventData)) < 0) {
+		return ret;
+	}
+
+	*events = (pvlib_event*)malloc(sizeof(pvlib_event) * eventData.size());
+	if (*events == nullptr) {
+		return -1;
+	}
+
+	for (size_t i = 0; i < eventData.size(); ++i) {
+		pvlib_event *e = (*events) + i;
+		const EventData &ed = eventData.at(i);
+
+		e->time  = ed.time;
+		e->value = ed.eventCode;
+
+		auto it = tagMap.find(ed.tag);
+		if (it != tagMap.end()) {
+			std::string shortDesc = it->second.shortDesc;
+
+			strncpy(e->message, shortDesc.c_str(), sizeof(e->message));
+			e->message[sizeof(e->message) - 1] = '\0';
+		}
+	}
+	return eventData.size();
 }
 
 int Smadata2plus::inverterNum() {

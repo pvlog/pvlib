@@ -23,6 +23,7 @@
 
 #include <Protocol.h>
 #include <cstring>
+#include <unordered_map>
 
 #include "Smanet.h"
 #include "Smabluetooth.h"
@@ -62,6 +63,8 @@ public:
 	virtual int readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_info) override;
 
 	virtual int readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield) override;
+
+	virtual int readEvents(uint32_t id, time_t from, time_t to, pvlib_event **events) override;
 
 	struct Device {
 		uint32_t serial;
@@ -142,6 +145,8 @@ private:
 
 	int syncTime();
 
+	int readTags(const std::string& file);
+
 	Connection *connection;
 	Smabluetooth sma;
 	Smanet smanet;
@@ -150,6 +155,17 @@ private:
 	bool transaction_active;
 
 	std::vector<Device> devices;
+
+	struct Tag {
+		std::string shortDesc;
+		std::string longDesc;
+
+		Tag(std::string shortDesc, std::string longDesc) :
+			shortDesc(std::move(shortDesc)),
+			longDesc(std::move(longDesc)) { }
+	};
+
+	std::unordered_map<uint32_t, Tag> tagMap;
 };
 
 #endif /* #ifndef SMADATA2PLUS_H */

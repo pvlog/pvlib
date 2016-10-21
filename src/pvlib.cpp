@@ -166,6 +166,10 @@ int pvlib_get_day_yield(pvlib_plant *plant, uint32_t id, time_t from, time_t to,
 	return plant->protocol->readDayYield(id, from, to, dayYield);
 }
 
+int pvlib_get_events(pvlib_plant *plant, uint32_t id, time_t from, time_t to, pvlib_event **events) {
+	return plant->protocol->readEvents(id, from, to, events);
+}
+
 void *pvlib_protocol_handle(pvlib_plant *plant) {
 	return plant->protocol;
 }

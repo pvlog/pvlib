@@ -113,6 +113,12 @@ typedef struct pvlib_day_yield {
 	int64_t dayYield;
 } pvlib_day_yield;
 
+typedef struct pvlib_event {
+	time_t  time;
+	int32_t value;
+	char    message[255];
+} pvlib_event;
+
 /**
  * Initialize pvlib.
  *
@@ -295,18 +301,31 @@ int pvlib_get_inverter_info(pvlib_plant *plant, uint32_t id, pvlib_inverter_info
  * @param id inverter id
  * @param from date to begin with. 0 means read all available data
  * @param to date to end with
- * @param[out] archive values. Need to befreed after use.
+ * @param[out] archive values. Need to be freed after use.
  *
  * @return number of dayYied entries on success or negative on failure.
  */
 int pvlib_get_day_yield(pvlib_plant *plant, uint32_t id, time_t from, time_t to, pvlib_day_yield **dayYield);
 
-///**
-// * Returns protocol handle.
-// * This must not be supported by protocol, so NULL does not mean an error occured.
-// *
-// * @return protocol handle.
-// */
+/**
+ * Read archived events.
+ *
+ * @param plant plant handle
+ * @param id inverter id
+ * @param from date to begin with. 0 means read all available data
+ * @param to date to end with
+ * @param[out] archived events. Need to be freed after use.
+ *
+ * @return number of dayYied entries on success or negative on failure.
+ */
+int pvlib_get_events(pvlib_plant *plant, uint32_t id, time_t from, time_t to, pvlib_event **events);
+
+/**
+ * Returns protocol handle.
+ * This must not be supported by protocol, so NULL does not mean an error occurred.
+ *
+ * @return protocol handle.
+ */
 void *pvlib_protocol_handle(pvlib_plant *plant);
 
 #if defined __cplusplus

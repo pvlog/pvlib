@@ -1,6 +1,6 @@
 #include "resources.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 
 const char* default_resources = "/usr/share/pvlib/";
 
