@@ -344,7 +344,7 @@ int Smadata2plus::readTags(const std::string& file) {
 	std::string line;
 	while (std::getline(infile, line)) {
 		std::size_t valuePos = line.find('=');
-		if (valuePos == std::string::npos || valuePos + 1 <= line.length()) {
+		if (valuePos == std::string::npos || valuePos + 1 >= line.length()) {
 			LOG_ERROR("Invalid line: %s", line.c_str());
 			continue;
 		}
