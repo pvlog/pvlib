@@ -26,7 +26,7 @@
 #include <cassert>
 #include <algorithm>
 
-#include "log.h"
+#include "Log.h"
 #include "Connection.h"
 
 #define HEADER_SIZE 18
@@ -41,16 +41,16 @@ using UniqueLock = std::unique_lock<std::mutex>;
 
 static int parse_header(uint8_t *buf, Smabluetooth::Packet *packet) {
 	if (buf[0] != 0x7e) {
-		LOG_ERROR("Invalid header!");
+		LOG(Error) << "Invalid header!";
 		return -1;
 	}
 	if (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]) {
-		LOG_ERROR("Broken header!");
+		LOG(Error) << "Broken header!";
 		return -1;
 	}
 
 	if (buf[1] < HEADER_SIZE) {
-		LOG_ERROR("Broken header!");
+		LOG(Error) << "Broken header!";
 		return -1;
 	}
 	packet->len = buf[1] - HEADER_SIZE;
@@ -68,11 +68,11 @@ int Smabluetooth::cmd_02(const Packet *packet) {
 	Packet answer;
 
 	if (packet->len != 13) {
-		LOG_ERROR("cmd 0x02 packet invalid length: %d instead of 13", packet->len);
+		LOG(Error) << "cmd 0x02 packet invalid length: " << packet->len << " instead of 13";
 		return -1;
 	}
 
-	LOG_TRACE("Got command 02");
+	LOG(Trace) << "Got command 02";
 
 	UniqueLock lock(mutex);
 	if (state != STATE_NOT_CONNECTED) {
@@ -105,11 +105,11 @@ int Smabluetooth::cmd_02(const Packet *packet) {
 //Get our mac + mac of direct connection partner
 int Smabluetooth::cmd_0A(const Packet *packet) {
 	if (packet->len != 13) {
-		LOG_ERROR("Ignoring packet, invalid length: %d instead of 13!", packet->len);
+		LOG(Error) << "Ignoring packet, invalid length: " << packet->len << " instead of 13!";
 		return 0;
 	}
 
-	LOG_TRACE("Got command 0A");
+	LOG(Trace) << "Got command 0A";
 
 	LockGuard lock(mutex);
 	if (state != STATE_START) {
@@ -127,17 +127,17 @@ int Smabluetooth::cmd_0A(const Packet *packet) {
 int Smabluetooth::cmd_05(const Packet *packet) {
 	int num_devices;
 	if ((packet->len % 8) != 0) {
-		LOG_ERROR("Invalid packet!");
+		LOG(Error) <<"Invalid packet!";
 		return -1;
 	}
 
-	LOG_TRACE("Got command 05");
+	LOG(Trace) << "Got command 05";
 
 	num_devices = packet->len / 8 - 1;
-	LOG_INFO("Found %d devices", num_devices);
+	LOG(Info) << "Found " << num_devices <<" devices";
 
 	if (num_devices == 0) {
-		LOG_ERROR("Invalid cmd 05 packet!");
+		LOG(Error) << "Invalid cmd 05 packet!";
 		return -1;
 	}
 
@@ -163,7 +163,7 @@ int Smabluetooth::cmd_04(const Packet *packet) {
 		return 0;
 	}
 
-	LOG_TRACE("Got command 04");
+	LOG(Trace) << "Got command 04";
 
 	mutex.lock();
 	signalStrength = packet->data[4] * 100 / 0xff;
@@ -190,7 +190,7 @@ int Smabluetooth::packet_event(const Packet *packet) {
 		if (cmd_04(packet) < 0) return -1;
 		break;
 	default:
-		LOG_ERROR("Got unknown cmd: %d", packet->cmd);
+		LOG(Error) << "Got unknown cmd: " << packet->cmd;
 	}
 
 	return 0;
@@ -249,7 +249,7 @@ void Smabluetooth::worker_thread() {
 		        == 0) || (memcmp(packet.mac_dst, MAC_BROADCAST, 6) == 0);
 
 		if (((packet.cmd == 0x01) || (packet.cmd == 0x08)) && for_us) {
-			LOG_TRACE_HEX("received smadata2plus packet:", packet.data, packet.len);
+			LOG(Trace) << "received smadata2plus packet:\n" << print_array(packet.data, packet.len);
 			mutex.lock();
 			if (packets.size() >= MAX_PACKETS_SIZE) { //remove old packets
 				packets.pop();
@@ -259,7 +259,7 @@ void Smabluetooth::worker_thread() {
 
 			event.notify_all();
 		} else {
-			LOG_TRACE_HEX("received non smadata2plus packet:", packet.data, packet.len);
+			LOG(Trace) << "received non smadata2plus packet:\n" << print_array(packet.data, packet.len);
 
 			if (for_us) {
 				if (packet_event(&packet) < 0) {
@@ -298,7 +298,7 @@ int Smabluetooth::connect() {
 	quit.store(false);
 	thread = std::thread([this] { worker_thread(); });
 
-	LOG_INFO("Connecting to device!");
+	LOG(Info) << "Connecting to device!";
 	UniqueLock lock(mutex);
 	//Wait until we get list of all devices
 	while (state != STATE_DEVICE_LIST) {
@@ -310,7 +310,7 @@ int Smabluetooth::connect() {
 		}
 
 		if (event.wait_for(lock, std::chrono::seconds(5)) == std::cv_status::timeout) {
-			LOG_ERROR("Connection timeout!");
+			LOG(Error) << "Connection timeout!";
 			quit.store(true);
 			thread.join();
 			state = STATE_NOT_CONNECTED;
@@ -320,10 +320,10 @@ int Smabluetooth::connect() {
 	state = STATE_CONNECTED;
 	lock.unlock();
 
-	LOG_INFO("Connected to device!");
+	LOG(Info) << "Connected to device!";
 
 	int signalStrength = getSignalStrength(mac_inv);
-	LOG_INFO("Signal strength %d\n", signalStrength);
+	LOG(Info) <<"Signal strength: " << signalStrength;
 
 	return 0;
 }
@@ -358,7 +358,7 @@ int Smabluetooth::writePacket(const Packet *packet)
 
 	len = packet->len + HEADER_SIZE;
 	if (len > 0xff) {
-		LOG_ERROR("Invalid data length");
+		LOG(Error) << "Invalid data length: " << packet->len;
 		return -1;
 	}
 
@@ -375,10 +375,10 @@ int Smabluetooth::writePacket(const Packet *packet)
 
 	memcpy(&buf[18], packet->data, packet->len);
 
-	LOG_TRACE_HEX("smabluetooth, write", buf, len);
+	LOG(Trace) << "smabluetooth, write:\n" << print_array(buf, len);
 
 	if ((ret = con->write(buf, len)) < 0) {
-		LOG_ERROR("Failed writing data.");
+		LOG(Error) << "Failed writing data.";
 		return ret;
 	}
 
@@ -393,12 +393,12 @@ int Smabluetooth::write(const uint8_t *data, int len, const std::string &to) {
 	packet.cmd = 0x01;
 
 	if (to.size() != 6) {
-		LOG_ERROR("Invalid destination: %s", to.c_str());
+		LOG(Error) << "Invalid destination: " << to;
 		return -1;
 	}
 
 	if (len > (int)sizeof(packet.data)) {
-		LOG_ERROR("Invalid data size: %d, can be maximal: %d", len, sizeof(packet.data));
+		LOG(Error) << "Invalid data size: " << len << ", can be maximal: " << sizeof(packet.data);
 		return -1;
 	}
 

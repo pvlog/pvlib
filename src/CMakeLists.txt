@@ -1,5 +1,4 @@
 set(src
-	log.cpp
 	Rfcomm.cpp
 	Smabluetooth.cpp
 	Smadata2plus.cpp
@@ -8,6 +7,7 @@ set(src
 	Connection.cpp
 	pvlib.cpp
 	resources.cpp
+	Log.cpp
 )
 	
 #add_library(pvlib SHARED ${src})

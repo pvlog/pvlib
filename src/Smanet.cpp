@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <Smanet.h>
 
-#include "log.h"
+#include "Log.h"
 
 static const uint32_t ACCM = 0x000E0000;
 static const uint8_t HDLC_ESC  = 0x7d;
@@ -308,12 +308,12 @@ int Smanet::read(uint8_t *data, int len, std::string &from)
 	}
 
 	if (!sync) {
-		LOG_ERROR("Failed: frame to big!");
+		LOG(Error) << "Failed: frame to big!";
 		return -1;
 	}
 
 	if (validateFrame(buf, i) < 0) {
-		LOG_ERROR("Invalid frame!");
+		LOG(Error) << "Invalid frame!";
 		return -1;
 	}
 

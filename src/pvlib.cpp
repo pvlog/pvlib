@@ -23,7 +23,6 @@
 #include <Protocol.h>
 
 #include "pvlib.h"
-#include "log.h"
 #include "Connection.h"
 #include "Protocol.h"
 
@@ -125,7 +124,7 @@ void pvlib_disconnect(pvlib_plant *plant) {
 }
 
 void pvlib_init(FILE *file) {
-	log_enable(file, LOG_ALL);
+	//log_enable(file, LOG_ALL);
 }
 
 void pvlib_shutdown(void) {

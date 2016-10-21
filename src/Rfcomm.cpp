@@ -49,7 +49,7 @@
 #	endif
 #endif
 
-#include "log.h"
+#include "Log.h"
 #include <Connection.h>
 
 const static int TIMEOUT = 5; /* in seconds */
@@ -78,44 +78,44 @@ int Rfcomm::connect(const char *address, const void *param) {
 
 	dev_id = hci_get_route(NULL);
 	if (dev_id < 0) {
-		LOG_ERROR("Failed finding bluetooth device: %s!", strerror(errno));
+		LOG(Error) << "Failed finding bluetooth device: " << strerror(errno);
 		return -1;
 	}
 
 	s = hci_open_dev(dev_id);
 	if (socket < 0) {
-		LOG_ERROR("Opening bluetooth device failed: %s!", strerror(errno));
+		LOG(Error) << "Opening bluetooth device failed: " << strerror(errno);
 		return -1;
 	}
 
 	//rfcomm = malloc(sizeof(*rfcomm));
 
 	if (str2ba(address, (bdaddr_t*)dst_mac) < 0) {
-		LOG_ERROR("Failed reading device bluetooth address: %s!", strerror(errno));
+		LOG(Error) << "Failed reading device bluetooth address: " << strerror(errno);
 		goto err;
 	}
 
 	if (hci_read_local_name(s, 128, src_name, 1000) < 0) {
-		LOG_INFO("Failed reading local bluetooth device name: %s!", strerror(errno));
+		LOG(Error) << "Failed reading local bluetooth device name: " << strerror(errno);
 		src_name[0] = '\0';
 		goto err;
 	}
 
 	if (hci_read_bd_addr(s, (bdaddr_t*)src_mac, 1000) < 0) {
-		LOG_ERROR("Failed reading local mac address, %s!", strerror(errno));
+		LOG(Error) << "Failed reading local mac address: " << strerror(errno);
 		goto err;
 	}
 
 	if (hci_read_remote_name(s, (bdaddr_t*)dst_mac, 128, dst_name, TIMEOUT * 1000)
 	        < 0) {
-		LOG_ERROR("Failed reading remote name: %s", strerror(errno));
+		LOG(Error) << "Failed reading remote name: " << strerror(errno);
 		goto err;
 	}
 
 	close(s);
 	s = ::socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
 	if (s < 0) {
-		LOG_ERROR("Failed opening bluetooth socket: %s", strerror(errno));
+		LOG(Error) << "Failed opening bluetooth socket: " << strerror(errno);
 		return -1;
 	}
 
@@ -127,13 +127,13 @@ int Rfcomm::connect(const char *address, const void *param) {
 	}
 
 	if (::connect(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		LOG_ERROR("Failed connecting to remote: %s", strerror(errno));
+		LOG(Error) << "Failed connecting to remote: " << strerror(errno);
 		goto err;
 	}
 
 	socket = s;
 	connected = true;
-	LOG_INFO("RFCOMM: Successfully established connection.");
+	LOG(Info) << "RFCOMM: Successfully established connection.";
 	return 0;
 
 err:
@@ -163,7 +163,7 @@ int Rfcomm::read(uint8_t *data, int max_len, std::string& from)
 	tv.tv_usec = (timeout % 1000) * 1000;
 
 	if (select(s + 1, &rdfds, NULL, NULL, &tv) < 0) {
-		LOG_ERROR("rfcomm select error!");
+		LOG(Error) << "rfcomm select error!";
 		return -1;
 	}
 
@@ -171,7 +171,7 @@ int Rfcomm::read(uint8_t *data, int max_len, std::string& from)
 		int ret;
 		ret = recv(s, data, max_len, 0);
 		if (ret <= 0) {
-			LOG_ERROR("Error reading data: %s", strerror(errno));
+			LOG(Error) << "Error reading data: " << strerror(errno);
 			return -1;
 		}
 		return ret;

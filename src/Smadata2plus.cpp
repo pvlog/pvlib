@@ -35,7 +35,7 @@
 #include <Smadata2plus.h>
 #include <Smanet.h>
 
-#include "log.h"
+#include "Log.h"
 #include "byte.h"
 #include "pvlib.h"
 #include "uthash.h"
@@ -285,26 +285,26 @@ static int parseChannelRecords(const uint8_t *buf,
 	DataReader dr(buf, len);
 
 	if (len < 8) {
-		LOG_ERROR("Invalid record length %d", len);
+		LOG(Error) << "Invalid record length: " << len;
 		return -1; //invalid length
 	}
 
 	if (dr.u8() != 0x1 || dr.u8() != 0x02) {
-		LOG_ERROR("Unexpected data in record header!");
+		LOG(Error) << "Unexpected data in record header!";
 		return -1; //invalid data
 	}
 
 	uint16_t object = dr.u16le();
-	LOG_DEBUG("Object id %02x", object);
+	LOG(Debug) << "Object id " << std::hex << object;
 	if (object != requestedObject) {
-		LOG_ERROR("Invalid object requested %d got %d", object, requestedObject);
+		LOG(Error) << "Invalid object requested: " << std::hex << object << " got: " << requestedObject;
 		return -1;
 	}
 
 	uint32_t unknown1 = dr.u32le();
 	uint32_t unknown2 = dr.u32le();
-	LOG_DEBUG("record data unknonwn1: %d", unknown1);
-	LOG_DEBUG("record data unknonwn2: %d", unknown2);
+	LOG(Debug) <<"record data unknonwn1: " <<  unknown1;
+	LOG(Debug) << "record data unknonwn2: " <<  unknown2;
 
 	size_t record_length = 0;
 	switch (type) {
@@ -337,7 +337,7 @@ int Smadata2plus::readTags(const std::string& file) {
 	std::ifstream infile(file);
 
 	if (!infile.is_open()) {
-		LOG_ERROR("Could not open file: %s", file.c_str());
+		LOG(Error) << "Could not open file: " << file;
 		return -1;
 	}
 
@@ -345,7 +345,7 @@ int Smadata2plus::readTags(const std::string& file) {
 	while (std::getline(infile, line)) {
 		std::size_t valuePos = line.find('=');
 		if (valuePos == std::string::npos || valuePos + 1 >= line.length()) {
-			LOG_ERROR("Invalid line: %s", line.c_str());
+			LOG(Error) << "Invalid line: " << line;
 			continue;
 		}
 
@@ -354,7 +354,7 @@ int Smadata2plus::readTags(const std::string& file) {
 
 		std::size_t shortDescEnd = value.find(';');
 		if (shortDescEnd == std::string::npos || shortDescEnd + 1 >= value.size()) {
-			LOG_ERROR("Invalid line: %s", line.c_str());
+			LOG(Error) << "Invalid line: " << line;
 			continue;
 		}
 
@@ -479,7 +479,7 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	} else {
 		if (serialToMac(devices, mac_dst, packet->dst)
 				< 0) {
-			LOG_ERROR("device: %d not in device list!", packet->dst);
+			LOG(Error) << "device: " << packet->dst <<" not in device list!";
 			return -1;
 		}
 		dw.u16le(0x004e);
@@ -502,8 +502,7 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	byte::storeU16le(&buf[22], transactionCntr);
 
 	memcpy(&buf[size], packet->data, packet->len);
-
-	LOG_TRACE_HEX("write smadata2plus packet", buf, packet->len + size);
+	LOG(Trace) << "write smadata2plus packet\n" << print_array(buf, packet->len + size);
 
 	std::string to(mac_dst, 6);
 	return smanet.write(buf, size + packet->len, to);
@@ -536,13 +535,13 @@ int Smadata2plus::read(Packet *packet) {
 	std::string src;
 	len = smanet.read(buf, packet->len + HEADER_SIZE, src);
 	if (len <= 0) { //handle timeout as failure
-		LOG_ERROR("smanet_read failed.");
+		LOG(Error) << "smanet_read failed.";
 		return -1;
 	}
 	int macsize = std::min(6, (int)src.size());
 	memcpy(packet->src_mac, src.c_str(), macsize);
 
-	LOG_TRACE_HEX("read smadata2plus packet", buf, len);
+	LOG(Trace) << "read smadata2plus packet" << print_array(buf, len);
 
 	packet->ctrl = buf[1];
 	packet->dst = byte::parseU32le(&buf[4]);
@@ -607,7 +606,7 @@ int Smadata2plus::readRecords(uint32_t serial,
 	//begin_transaction(sma);
 
 	if ((ret = requestChannel(serial, object, from_idx, to_idx)) < 0) {
-		LOG_ERROR("Failed requesting %04X %04X % 04X", object, from_idx, to_idx);
+		LOG(Error) << "Failed requesting " << std::hex <<  object << " " << from_idx << " " << to_idx;
 		//end_transaction(sma);
 		return ret;
 	}
@@ -624,7 +623,7 @@ int Smadata2plus::readRecords(uint32_t serial,
 	//end_transaction(sma);
 
 	if ((ret = parseChannelRecords(data, packet.len, records, len, type, object)) < 0) {
-		LOG_ERROR("Error parsing record of %04X %04X % 04X", object, from_idx, to_idx);
+		LOG(Error) << "Failed parsing record of " << std::hex <<  object << " " << from_idx << " " << to_idx;
 		return ret;
 	}
 
@@ -719,7 +718,7 @@ int Smadata2plus::sendPassword(const char *password, Smadata2plus::UserType user
 	memset(buf, 0x00, sizeof(buf));
 
 	cur_time = time(NULL);
-	LOG_INFO("Sending password %s at %s.", password, ctime(&cur_time));
+	LOG(Info) << "Sending password " <<  password << " at " << ctime(&cur_time);
 
 	dw.u32le(0xfffd040c);
 	dw.u8(0x07);
@@ -776,7 +775,7 @@ int Smadata2plus::authenticate(const char *password, UserType user)
 	Transaction t(this);
 
 	if (sendPassword(password, user) < 0) {
-		LOG_ERROR("Failed sending password!");
+		LOG(Error) << "Failed sending password!";
 		return -1;
 	}
 
@@ -789,12 +788,12 @@ int Smadata2plus::authenticate(const char *password, UserType user)
 			Device *device;
 
 			if ((buf[20 + i] ^ 0x88) != password[i]) {
-				LOG_INFO("Plant authentication error, serial: %d", packet.src);
+				LOG(Info) << "Plant authentication error, serial: " << packet.src;
 			}
 
 			device = getDevice(devices, packet.src);
 			if (device == NULL) {
-				LOG_WARNING("Got authentication answer of non registered device: %d", packet.src);
+				LOG(Warning) << "Got authentication answer of non registered device: " << packet.src;
 			}
 			device->authenticated = true;
 		}
@@ -871,7 +870,7 @@ int Smadata2plus::syncTime() {
 
 	Transaction t(this);
 	if ((ret = write(&packet)) < 0) {
-		LOG_ERROR("Error reading inverter date!");
+		LOG(Error) << "Error reading inverter date!";
 		//end_transaction(sma);
 		return ret;
 	}
@@ -882,22 +881,22 @@ int Smadata2plus::syncTime() {
 	//It's transaction counter is completely different
 	//and the reply flag is not set
 	if ((ret = read(&packet)) < 0) {
-		LOG_ERROR("smadata2plus_read failed!");
+		LOG(Error) << "smadata2plus_read failed!";
 		return ret;
 	}
 
 	if (packet.len != 40) {
-		LOG_ERROR("Invalid packet!");
+		LOG(Error) << "Invalid packet!";
 		return -1;
 	}
 
 	time_t last_adjusted = byte::parseU32le(buf + 20);
-	LOG_INFO("Time last adjusted: %s", ctime(&last_adjusted));
+	LOG(Info) << "Time last adjusted: %s", ctime(&last_adjusted);
 
 	time_t inverter_time1 = byte::parseU32le(buf + 16);
 	time_t inverter_time2 = byte::parseU32le(buf + 24);
-	LOG_INFO("Inverter time 1: %s", ctime(&inverter_time1));
-	LOG_INFO("Inverter time 2: %s", ctime(&inverter_time2));
+	LOG(Info) << "Inverter time 1: " << ctime(&inverter_time1);
+	LOG(Info) << "Inverter time 2: " << ctime(&inverter_time2);
 
 	uint32_t tz_dst = byte::parseU32le(buf + 28);
 	int tz = tz_dst & 0xfffffe;
@@ -920,7 +919,7 @@ int Smadata2plus::syncTime() {
 	byte::storeU32le(buf + 4, 0x1);
 
 	if ((ret = writeReplay(&packet, transaction_cntr)) < 0) {
-		LOG_ERROR("Error writing time ack!");
+		LOG(Error) << "Error writing time ack!";
 		return ret;
 	}
 
@@ -955,7 +954,7 @@ int Smadata2plus::syncTime() {
 
 		t.begin();
 		if ((ret = write(&packet)) < 0) {
-			LOG_ERROR("Error setting date!");
+			LOG(Error) <<"Error setting date!";
 			return ret;
 		}
 		t.end();
@@ -973,7 +972,7 @@ Smadata2plus::Smadata2plus(Connection *con) :
 
 	std::string tagFile = std::string(resources_path()) + '/' + "en_US_tags.txt";
 	if (readTags(tagFile) < 0) {
-		LOG_WARNING("Could not read tags");
+		LOG(Warning) << "Could not read tags";
 	}
 }
 
@@ -984,12 +983,12 @@ int Smadata2plus::connect(const char *password, const void *param)
 	int cnt = 0;
 
 	if ((ret = sma.connect()) < 0) {
-	    LOG_ERROR("Connecting bluetooth failed!");
+	    LOG(Error) << "Connecting bluetooth failed!";
 	    return ret;
 	}
 
 	deviceNum = sma.getDeviceNum();
-	LOG_INFO("%d devices!", deviceNum);
+	LOG(Info) << deviceNum << " devices!";;
 
 	if ((ret = logout()) < 0) {
 		return ret;
@@ -998,10 +997,10 @@ int Smadata2plus::connect(const char *password, const void *param)
 	do {
 		ret = discoverDevices(deviceNum);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Device discover failed!");
+			LOG(Error) << "Device discover failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Device discover failed! Retrying ...");
+			LOG(Warning) << "Device discover failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1011,10 +1010,10 @@ int Smadata2plus::connect(const char *password, const void *param)
 	do {
 		ret = authenticate(password, USER);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Authentication  failed!");
+			LOG(Error) << "Authentication  failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Authentication failed! Retrying ...");
+			LOG(Warning) << "Authentication failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1024,16 +1023,16 @@ int Smadata2plus::connect(const char *password, const void *param)
 	do {
 		ret = syncTime();
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Sync time failed!");
+			LOG(Error) << "Sync time failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Sync time failed! Retrying ...");
+			LOG(Warning) << "Sync time failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
 	} while (ret < 0);
 	cnt = 0;
-	LOG_INFO("Synchronized time!");
+	LOG(Info) << "Synchronized time!";
 
 	return 0;
 }
@@ -1082,10 +1081,10 @@ int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 	do {
 		ret = readRecords(id, 0x5100, 0x200000, 0x50ffff, records, &num_recs, RECORD_1);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Reading dc spot data  failed!");
+			LOG(Error) << "Reading dc spot data  failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Reading dc spot data failed! Retrying ...");
+			LOG(Warning) << "Reading dc spot data failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1096,7 +1095,7 @@ int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 		Record *r = &records[i];
 
 		uint32_t value = r->record.r1.value2;
-		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
+		LOG(Debug) << "Read ac idx: " << r->header.idx << " value: " << value;
 
 		switch(r->header.idx) {
 		case TOTAL_POWER:
@@ -1109,10 +1108,10 @@ int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 		case MAX_PHASE3:
 			break;
 		case UNKNOWN_1:
-			LOG_DEBUG("UNKNOWN_1, %d", value);
+			LOG(Debug) <<"UNKNOWN_1, " << value;
 			break;
 		case UNKNWON_2:
-			LOG_DEBUG("UNKNOWN_2, %d", value);
+			LOG(Debug) <<"UNKNOWN_2, " << value;
 			break;
 		case POWER_PHASE1:
 			ac->power[0] = convertAcPower(value);
@@ -1189,10 +1188,10 @@ int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 	do {
 		ret = readRecords(id, 0x5380, 0x200000, 0x5000ff, records, &num_recs, RECORD_1);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Reading dc spot data  failed!");
+			LOG(Error) << "Reading dc spot data  failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Reading dc spot data failed! Retrying ...");
+			LOG(Error) << "Reading dc spot data failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1204,11 +1203,11 @@ int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 		Record *r = &records[i];
 		uint32_t value = r->record.r1.value2;
 
-		LOG_DEBUG("Read idx %d value: %d", r->header.idx, value);
+		LOG(Debug) << "Read dc idx: " << r->header.idx << " value: " << value;
 
 		int tracker = r->header.cnt;
 		if (tracker < 1) {
-			LOG_ERROR("Invalid tracker number: %d", tracker);
+			LOG(Error) << "Invalid tracker number: " << tracker;
 			continue;
 		}
 
@@ -1269,10 +1268,10 @@ int Smadata2plus::readStats(uint32_t id, pvlib_stats *stats) {
 	do {
 		ret = readRecords(id, 0x5400, 0x20000, 0x50ffff, records, &num_recs, RECORD_2);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Reading stats  failed!");
+			LOG(Error) << "Reading stats  failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Reading stats failed! Retrying ...");
+			LOG(Warning) << "Reading stats failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1283,7 +1282,7 @@ int Smadata2plus::readStats(uint32_t id, pvlib_stats *stats) {
 
 		int64_t value = (int64_t)r->record.r2.value;
 
-		LOG_DEBUG("Read stats: idx %x value: %" PRIu64, r->header.idx, value);
+		LOG(Debug) << "Read stats idx: " << r->header.idx << " value: " << value;
 
 		switch (r->header.idx) {
 		case STAT_TOTAL_YIELD:
@@ -1316,10 +1315,10 @@ int Smadata2plus::readStatus(uint32_t id, pvlib_status *status)
 	do {
 		ret = readRecords(SERIAL_BROADCAST, 0x5180, 0x214800, 0x2148ff, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Reading inverter status  failed!");
+			LOG(Error) << "Reading inverter status  failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Reading inverter status failed! Retrying ...");
+			LOG(Warning) << "Reading inverter status failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1352,7 +1351,7 @@ int Smadata2plus::readStatus(uint32_t id, pvlib_status *status)
 			break;
 		}
 		default:
-			LOG_ERROR("Unexpected idx: %x", r->header.idx);
+			LOG(Error) << "Unexpected idx: " << std::hex <<  r->header.idx;
 			break;
 		}
 
@@ -1367,7 +1366,8 @@ static int parseFirmwareVersion(uint8_t *data, char *version)
 	//firmware version is stored from byte 16 + to 19
 
 	if (data[18] > 9 || data[19] > 9) {
-		LOG_ERROR("Invalid firmware version: 0x%02x%02x%02x%02x", data[16], data[17], data[18], data[19]);
+		LOG(Error) << "Invalid firmware version: " << std::hex
+				<< data[16] << data[17] << data[18] << data[19];
 		return -1;
 	}
 
@@ -1398,10 +1398,10 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 	do {
 		ret = readRecords(id, 0x5800, 0x821e00, 0x8234FF, records, &num_recs, RECORD_3);
 		if (cnt > NUM_RETRIES && ret < 0) {
-			LOG_ERROR("Reading inverter info  failed!");
+			LOG(Error) << "Reading inverter info  failed!";
 			return ret;
 		} else if (ret < 0){
-			LOG_WARNING("Reading inverter info failed! Retrying ...");
+			LOG(Warning) << "Reading inverter info failed! Retrying ...";
 			cnt++;
 			sleep_for(seconds(cnt));
 		}
@@ -1417,7 +1417,7 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 		switch (r->header.idx) {
 		case DEVICE_NAME:
 			if (strncmp((char*)d, "SN: ", 4) != 0) {
-				LOG_WARNING("Unexpected device name!");
+				LOG(Warning) << "Unexpected device name!";
 			}
 			strncpy(inverter_info->name, (const char*)d, 32);
 			break;
@@ -1427,7 +1427,7 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 			parseAttributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
-					LOG_DEBUG("Device class: %d", attributes[i].attribute);
+					LOG(Debug) << "Device class: " << attributes[i].attribute;
 				}
 			}
 			break;
@@ -1438,7 +1438,7 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 			parseAttributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {
-					LOG_DEBUG("Device type: %d", attributes[i].attribute);
+					LOG(Debug) << "Device type: " << attributes[i].attribute;
 					snprintf(inverter_info->type, sizeof(inverter_info->type), "%d", attributes[i].attribute);
 
 				}
@@ -1449,7 +1449,7 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 			break;
 		case DEVICE_SWVER:
 			if (parseFirmwareVersion(d, inverter_info->firmware_version) < 0) {
-				LOG_WARNING("Invalid firmware format. Ignoring it!");
+				LOG(Warning) << "Invalid firmware format. Ignoring it!";
 			}
 			break;
 		default:
@@ -1564,14 +1564,14 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 
 		//check data len
 		if (packet.len < 12) {
-			LOG_ERROR("Got packet with unexpected length!");
+			LOG(Error) << "Got packet with unexpected length!";
 			return -1;
 		}
 
 		//check object
 		uint16_t obj = byte::parseU16le(buf + 2);
 		if (obj != reqObj) {
-			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObj, obj);
+			LOG(Error) << "Unexpected object, expected: " << std::hex << reqObj << obj;
 			return -1;
 		}
 
@@ -1579,7 +1579,7 @@ int Smadata2plus::readEventData(uint32_t serial, time_t from, time_t to, UserTyp
 		uint32_t dataTo   = byte::parseU32le(buf + 8);
 		int entrys = dataTo - dataFrom + 1;
 		if (entrys <= 0) {
-			LOG_ERROR("Unexpected entry number: %d", entrys);
+			LOG(Error) << "Unexpected entry number: " << entrys;
 			return -1;
 		}
 
@@ -1623,14 +1623,14 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 
 		//check data len
 		if (packet.len < 12) {
-			LOG_ERROR("Got packet with unexpected length!");
+			LOG(Error) << "Got packet with unexpected length!";
 			return -1;
 		}
 
 		//check object
 		uint16_t obj = byte::parseU16le(buf + 2);
 		if (obj != reqObj) {
-			LOG_ERROR("Unexpected object, expected: %x, got %x", reqObj, obj);
+			LOG(Error) << "Unexpected object, expected: " <<std::hex << reqObj << obj;
 			return -1;
 		}
 
@@ -1638,7 +1638,7 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 		uint32_t dataTo   = byte::parseU32le(buf + 8);
 		int entrys = dataTo - dataFrom + 1;
 		if (entrys <= 0) {
-			LOG_ERROR("Unexpected entry number: %d", entrys);
+			LOG(Error) << "Unexpected entry number: " << entrys;
 			return -1;
 		}
 
@@ -1684,7 +1684,7 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 		const TotalDayData &cur  = dayData.at(i);
 
 		if (cur.time - prev.time >= 48 * 60 * 60) {
-			LOG_ERROR("Gap between two values! Can not calculate day yield!");
+			LOG(Error) << "Gap between two values! Can not calculate day yield!";
 			continue;
 		}
 
