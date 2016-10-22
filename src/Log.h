@@ -5,6 +5,7 @@
 #include <sstream>
 #include <cstring>
 #include <ostream>
+#include "Utility.h"
 
 enum Level {
 	Error = 0, Info, Warning, Debug, Trace
@@ -13,51 +14,24 @@ enum Level {
 const static char *levelName[] = { "ERROR", "INFO", "WARNING", "DEBUG", "TRACE" };
 
 class Log {
+	DISABLE_COPY(Log)
 public:
-	Log()
-	{
+	Log() {
 		//nothing to do
 	}
-	virtual ~Log()
-	{
-		os << std::endl;
-		fprintf(stderr, "%s", os.str().c_str());
-		fflush(stderr);
-	}
+	virtual ~Log();
 
-	std::ostringstream& Get(Level level, const char* file, int line)
-	{
-		const char *fileName = filename(file);
+	std::ostringstream& Get(Level level, const char* file, int line);
 
-		os << levelName[level] << '[' << fileName << " " << line << ']' << " ";
-		return os;
-	}
-	static Level& ReportingLevel()
-	{
+	static Level& ReportingLevel() {
 		return messageLevel;
 	}
 
 protected:
 	std::ostringstream os;
 
-private:
-	static const char *filename(const char *file)
-	{
-		const char *i;
-		int len = strlen(file);
-		if (len <= 1) return file;
+	static const char *filename(const char *file);
 
-		for (i = &file[len - 1]; i != file; i--) {
-			if (*i == '/' || *i == '\\') {
-				return &i[1];
-			}
-		}
-		return file;
-	}
-
-	Log(const Log&);
-	Log& operator =(const Log&);
-private:
 	static Level messageLevel;
 };
 
@@ -68,16 +42,7 @@ struct print_array {
 	print_array(const uint8_t *array, size_t size) : array(array), size(size) {}
 };
 
-inline std::ostream& operator<<(std::ostream& o, const print_array& a) {
-	for (size_t i = 0; i < a.size; ++i) {
-		o << a.array[i] << " ";
-		if (!(i + 1) % 16 ||( i + 1 == a.size)) {
-			o << "\n";
-		}
-	}
-
-	return o;
-}
+std::ostream& operator<<(std::ostream& o, const print_array& a);
 
 #define LOG(LEVEL) \
 if (LEVEL > Log::ReportingLevel()) \
