@@ -20,9 +20,12 @@
 
 #include <Protocol.h>
 
+namespace pvlib {
+
 extern ProtocolInfo smadata2plusProtocolInfo;
 
 const std::vector<const ProtocolInfo*> Protocol::availableProtocols = {
 	&smadata2plusProtocolInfo
 };
 
+} //namespace pvlib {

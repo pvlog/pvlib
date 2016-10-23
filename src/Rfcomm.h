@@ -4,6 +4,8 @@
 #include <Connection.h>
 #include <memory>
 
+namespace pvlib {
+
 class Rfcomm : public Connection {
 public:
 	Rfcomm();
@@ -26,5 +28,7 @@ private:
 	char src_name[128];
 	char dst_name[128];
 };
+
+} //namespace pvlib {
 
 #endif /* #ifndef RFCOMM_H */

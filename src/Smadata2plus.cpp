@@ -38,8 +38,9 @@
 #include "Log.h"
 #include "byte.h"
 #include "pvlib.h"
-#include "uthash.h"
 #include "resources.h"
+
+namespace pvlib {
 
 using std::this_thread::sleep_for;
 using std::chrono::seconds;
@@ -125,13 +126,13 @@ enum {
 	DEVICE_STATUS = 0x2148
 };
 
-struct tag_hash {
-    int num;
-    char tag[128];
-    char message[256];
-
-    UT_hash_handle hh;
-};
+//struct tag_hash {
+//    int num;
+//    char tag[128];
+//    char message[256];
+//
+//    UT_hash_handle hh;
+//};
 
 
 //struct smadata2plus_s {
@@ -1847,3 +1848,5 @@ static Protocol *createSmadata2plus(Connection *con) {
 
 extern const ProtocolInfo smadata2plusProtocolInfo;
 const ProtocolInfo smadata2plusProtocolInfo(createSmadata2plus, "smadata2plus", "pvlogdev,", "");
+
+} //namespace pvlib {

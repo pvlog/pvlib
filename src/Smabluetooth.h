@@ -30,6 +30,8 @@
 
 #include "ReadWrite.h"
 
+namespace pvlib {
+
 #define SMABLUETOOTH_CONNECT 0x02
 #define SMABLUETOOTH_ADDRESS 0x0a
 #define SMABLUETOOTH_ADDRESS2 0x05
@@ -171,5 +173,7 @@ private:
 	std::queue<Packet> packets;
 	const static size_t MAX_PACKETS_SIZE = 40;
 };
+
+} //namespace pvlib {
 
 #endif /* #ifndef SMABLUETOOTH_H */

@@ -2,6 +2,8 @@
 
 #include <cstdlib>
 
+namespace pvlib {
+
 const char* default_resources = "/usr/share/pvlib/";
 
 const char *resources_path() {
@@ -12,3 +14,5 @@ const char *resources_path() {
         return default_resources;
     }
 }
+
+} //namespace pvlib {

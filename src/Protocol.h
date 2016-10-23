@@ -83,6 +83,8 @@
 //void protocol_close(protocol_t *protocol);
 //
 
+namespace pvlib {
+
 class Connection;
 struct ProtocolInfo;
 
@@ -132,5 +134,6 @@ struct ProtocolInfo {
     }
 };
 
+} //namespace pvlib {
 
 #endif /* PVLIB_PROTOCOL_H */

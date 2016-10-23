@@ -20,11 +20,15 @@
 
 #include "Connection.h"
 
+namespace pvlib {
+
 extern ConnectionInfo rfcommConnectionInfo;
 
 const std::vector<const ConnectionInfo*> Connection::availableConnections = {
 	&rfcommConnectionInfo
 };
+
+} //namespace pvlib {
 
 
 

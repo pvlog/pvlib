@@ -28,6 +28,8 @@
 #include "Smanet.h"
 #include "Smabluetooth.h"
 
+namespace pvlib {
+
 struct Smabluetooth;
 class Connection;
 //struct Device;
@@ -167,5 +169,7 @@ private:
 
 	std::unordered_map<uint32_t, Tag> tagMap;
 };
+
+} //namespace pvlib {
 
 #endif /* #ifndef SMADATA2PLUS_H */

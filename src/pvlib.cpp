@@ -26,6 +26,8 @@
 #include "Connection.h"
 #include "Protocol.h"
 
+using namespace pvlib;
+
 struct pvlib_plant {
 	Connection *con;
 	Protocol *protocol;

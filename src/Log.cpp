@@ -1,5 +1,7 @@
 #include "Log.h"
 
+namespace pvlib {
+
 Level Log::messageLevel = Trace;
 
 Log::~Log() {
@@ -38,3 +40,5 @@ std::ostream& operator<<(std::ostream& o, const print_array& a) {
 
 	return o;
 }
+
+} //namespace pvlib {

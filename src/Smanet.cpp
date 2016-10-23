@@ -25,6 +25,8 @@
 
 #include "Log.h"
 
+namespace pvlib {
+
 static const uint32_t ACCM = 0x000E0000;
 static const uint8_t HDLC_ESC  = 0x7d;
 static const uint8_t HDLC_SYNC = 0x7e;
@@ -353,3 +355,5 @@ int Smanet::write(const uint8_t *data, int len, const std::string &to)
 
 	return con->write(buf, pos, to);
 }
+
+} //namespace pvlib {

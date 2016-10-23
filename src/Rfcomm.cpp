@@ -52,6 +52,8 @@
 #include "Log.h"
 #include <Connection.h>
 
+namespace pvlib {
+
 const static int TIMEOUT = 5; /* in seconds */
 
 Rfcomm::Rfcomm() :
@@ -211,3 +213,5 @@ static Connection *createRfcomm() {
 
 extern const ConnectionInfo rfcommConnectionInfo;
 const ConnectionInfo rfcommConnectionInfo(createRfcomm, "rfcomm", "pvlogdev,", "");
+
+} //namespace pvlib {

@@ -7,6 +7,8 @@
 #include <ostream>
 #include "Utility.h"
 
+namespace pvlib {
+
 enum Level {
 	Error = 0, Info, Warning, Debug, Trace
 };
@@ -49,5 +51,7 @@ if (LEVEL > Log::ReportingLevel()) \
 ; \
 else \
 Log().Get(LEVEL, __FILE__, __LINE__)
+
+} //namespace pvlib {
 
 #endif /* #ifndef LOG_H */

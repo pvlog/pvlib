@@ -3,6 +3,8 @@
 
 #include <string>
 
+namespace pvlib {
+
 class ReadWrite {
 public:
 	virtual ~ReadWrite() {}
@@ -40,6 +42,6 @@ public:
 	}
 };
 
-
+} //namespace pvlib {
 
 #endif /* SRC_PVLIB_SRC_READWRITE_H_ */

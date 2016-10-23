@@ -29,6 +29,8 @@
 #include "Log.h"
 #include "Connection.h"
 
+namespace pvlib {
+
 #define HEADER_SIZE 18
 #define TIMEOUT 5000
 
@@ -472,3 +474,5 @@ int Smabluetooth::getSignalStrength(const uint8_t *mac)
 	events &= ~EVENT_SIGNAL_STRENGTH;
 	return signalStrength;
 }
+
+} //namespace pvlib {

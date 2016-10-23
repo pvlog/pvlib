@@ -56,6 +56,8 @@
 //
 //connection_t * connection_open(uint32_t handle);
 
+namespace pvlib {
+
 struct ConnectionInfo;
 
 class Connection : public ReadWrite {
@@ -103,6 +105,8 @@ struct ConnectionInfo {
 			comment(comment) {
     }
 };
+
+} //namespace pvlib {
 
 
 //int connection_connect(connection_t *con, const char *address, const void *param);

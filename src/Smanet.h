@@ -25,6 +25,8 @@
 
 #include "ReadWrite.h"
 
+namespace pvlib {
+
 
 class Smanet : public ReadWrite {
 public:
@@ -83,5 +85,7 @@ private:
 	uint8_t read_buf[BUF_SIZE];
 	uint8_t size;
 };
+
+} //namespace pvlib {
 
 #endif /* #ifndef SMANET_H */
