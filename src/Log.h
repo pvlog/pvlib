@@ -44,7 +44,7 @@ struct print_array {
 	print_array(const uint8_t *array, size_t size) : array(array), size(size) {}
 };
 
-std::ostream& operator<<(std::ostream& o, const print_array& a);
+std::ostream& operator<<(std::ostream& o, print_array a);
 
 #define LOG(LEVEL) \
 if (LEVEL > Log::ReportingLevel()) \
