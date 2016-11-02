@@ -286,7 +286,8 @@ Smabluetooth::Smabluetooth(Connection *con) :
 		num_devices(0),
 		signalStrength(0),
 		events(0) {
-
+	memset(mac, 0, sizeof(mac));
+	memset(mac_inv, 0, sizeof(mac_inv));
 }
 
 Smabluetooth::~Smabluetooth() {
