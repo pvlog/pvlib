@@ -38,7 +38,8 @@ static const uint64_t PVLIB_INVALID_U64 = UINT64_MAX;
 static const uint32_t PVLIB_INVALID_U32 = UINT32_MAX;
 static const uint16_t PVLIB_INVALID_U16 = UINT16_MAX;
 
-typedef struct pvlib_plant pvlib_plant;
+//typedef struct pvlib_plant pvlib_plant;
+struct pvlib_plant;
 
 enum {
 	PVLIB_UNSUPPORTED_CONNECTION, PVLIB_ERROR
