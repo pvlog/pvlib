@@ -35,7 +35,7 @@ const char *Log::filename(const char *file) {
 std::ostream& operator<<(std::ostream& o, const print_array& a) {
 	o <<  std::hex << std::setfill('0');
 	for (size_t i = 0; i < a.size; ++i) {
-		o << std::setw(2) << a.array[i] << " ";
+		o << std::setw(2) << (int)a.array[i] << " ";
 		if (!(i + 1) % 16 ||( i + 1 == a.size)) {
 			o << "\n";
 		}
