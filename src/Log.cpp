@@ -1,5 +1,7 @@
 #include "Log.h"
 
+#include <iomanip>
+
 namespace pvlib {
 
 Level Log::messageLevel = Trace;
@@ -31,6 +33,7 @@ const char *Log::filename(const char *file) {
 }
 
 std::ostream& operator<<(std::ostream& o, print_array a) {
+	o <<  std::hex << std::setfill('0') << std::setw(2);
 	for (size_t i = 0; i < a.size; ++i) {
 		o << a.array[i] << " ";
 		if (!(i + 1) % 16 ||( i + 1 == a.size)) {
