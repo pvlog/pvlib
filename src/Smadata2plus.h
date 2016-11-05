@@ -110,7 +110,7 @@ public:
 
 	struct TotalDayData {
 		int32_t time;
-		int64_t totalYield; //in Wh
+		uint64_t totalYield; //in Wh
 	};
 
 	virtual int readEventData(uint32_t serial, time_t from, time_t to,

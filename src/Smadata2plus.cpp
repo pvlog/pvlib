@@ -1645,7 +1645,7 @@ int Smadata2plus::readTotalDayData(uint32_t serial, time_t from,
 
 		for (int i = 12; i + 12 <= packet.len && ((i - 12) / 12 < entrys); i += 12) {
 			TotalDayData day = parseTotalDayData(buf + i, 12);
-			if ((from <= day.time) && (day.time <= to) && (day.totalYield != 0)) {
+			if ((from <= day.time) && (day.time <= to) && (day.totalYield != PVLIB_INVALID_U64)) {
 				//some or all inverter ignore the from and to time stamps and
 				//return the complete event history, so filter know
 				dayData.push_back(day);
