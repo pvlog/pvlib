@@ -930,7 +930,7 @@ int Smadata2plus::syncTime() {
 	time_t cur_time = time(NULL);
 
 	time_t timeDeviation = abs(cur_time - inverter_time1);
-	if (timeDeviation > 10) {
+	if (timeDeviation > 15) {
 		LOG(Info) << "time deviation " << timeDeviation << " setting inverter time!";
 		memset(&packet, 0x00, sizeof(packet));
 		memset(buf, 0x00, sizeof(buf));
