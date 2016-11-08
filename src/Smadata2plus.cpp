@@ -205,7 +205,7 @@ class Transaction {
 
 public:
 	void begin() {
-		assert(sma->transaction_active == true);
+		assert(sma->transaction_active == false);
 		sma->transaction_active = true;
 	}
 
@@ -892,7 +892,7 @@ int Smadata2plus::syncTime() {
 	}
 
 	time_t last_adjusted = byte::parseU32le(buf + 20);
-	LOG(Info) << "Time last adjusted: %s", ctime(&last_adjusted);
+	LOG(Info) << "Time last adjusted: " << ctime(&last_adjusted);
 
 	time_t inverter_time1 = byte::parseU32le(buf + 16);
 	time_t inverter_time2 = byte::parseU32le(buf + 24);
@@ -929,7 +929,9 @@ int Smadata2plus::syncTime() {
 
 	time_t cur_time = time(NULL);
 
-	if ((abs(cur_time - inverter_time1)) > 10) {
+	time_t timeDeviation = abs(cur_time - inverter_time1);
+	if (timeDeviation > 10) {
+		LOG(Info) << "time deviation " << timeDeviation << " setting inverter time!";
 		memset(&packet, 0x00, sizeof(packet));
 		memset(buf, 0x00, sizeof(buf));
 		DataWriter dw(buf, sizeof(buf));
