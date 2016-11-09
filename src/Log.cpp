@@ -26,7 +26,7 @@ std::ostringstream& Log::get(Level level, const char* file, int line) {
 	strftime(buffer,80,"%Y-%m-%d %I:%M:%S", timeinfo);
 	std::string timeStr(buffer);
 
-	os << levelName[level] << '[' << timeStr << " " << fileName << ":" << line << " " << ']' << " ";
+	os << levelName[level] << '[' << timeStr << " " << fileName << ":" << line << ']' << " ";
 	return os;
 }
 
