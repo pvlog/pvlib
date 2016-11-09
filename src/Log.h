@@ -1,10 +1,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include <cstdio>
 #include <sstream>
-#include <cstring>
-#include <ostream>
 #include "Utility.h"
 
 namespace pvlib {
@@ -12,8 +9,6 @@ namespace pvlib {
 enum Level {
 	Error = 0, Info, Warning, Debug, Trace
 };
-
-const static char *levelName[] = { "ERROR", "INFO", "WARNING", "DEBUG", "TRACE" };
 
 class Log {
 	DISABLE_COPY(Log)
@@ -23,9 +18,9 @@ public:
 	}
 	virtual ~Log();
 
-	std::ostringstream& Get(Level level, const char* file, int line);
+	std::ostringstream& get(Level level, const char* file, int line);
 
-	static Level& ReportingLevel() {
+	static Level& reportingLevel() {
 		return messageLevel;
 	}
 
@@ -47,10 +42,10 @@ struct print_array {
 std::ostream& operator<<(std::ostream& o, const print_array& a);
 
 #define LOG(LEVEL) \
-if (LEVEL > Log::ReportingLevel()) \
+if (LEVEL > Log::reportingLevel()) \
 ; \
 else \
-Log().Get(LEVEL, __FILE__, __LINE__)
+Log().get(LEVEL, __FILE__, __LINE__)
 
 } //namespace pvlib {
 

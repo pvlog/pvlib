@@ -1,8 +1,13 @@
 #include "Log.h"
 
+#include <cstring>
+#include <cstdio>
+#include <ctime>
 #include <iomanip>
 
 namespace pvlib {
+
+const static char *levelName[] = { "ERROR", "INFO", "WARNING", "DEBUG", "TRACE" };
 
 Level Log::messageLevel = Trace;
 
@@ -12,10 +17,11 @@ Log::~Log() {
 	fflush(stderr);
 }
 
-std::ostringstream& Log::Get(Level level, const char* file, int line) {
+std::ostringstream& Log::get(Level level, const char* file, int line) {
 	const char *fileName = filename(file);
+	std::time_t curTime = std::time(nullptr);
 
-	os << levelName[level] << '[' << fileName << " " << line << ']' << " ";
+	os << levelName[level] << '[' << ctime(&curTime) << fileName << " " << line << " " << ']' << " ";
 	return os;
 }
 
