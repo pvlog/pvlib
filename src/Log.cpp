@@ -23,7 +23,7 @@ std::ostringstream& Log::get(Level level, const char* file, int line) {
 	char buffer[30];
 
 	tm* timeinfo = localtime(&curTime);
-	strftime(buffer,80,"%Y-%m-%d %I:%M:%S", timeinfo);
+	strftime(buffer,80,"%Y-%m-%d %T", timeinfo);
 	std::string timeStr(buffer);
 
 	os << levelName[level] << '[' << timeStr << " " << fileName << ":" << line << ']' << " ";
