@@ -19,11 +19,14 @@ Log::~Log() {
 
 std::ostringstream& Log::get(Level level, const char* file, int line) {
 	const char *fileName = filename(file);
-	std::time_t curTime = std::time(nullptr);
+	time_t curTime = time(nullptr);
+	char buffer[30];
 
-	std::tm* tm = localtime(&curTime);
+	tm* timeinfo = localtime(&curTime);
+	strftime(buffer,80,"%Y-%m-%d %I:%M:%S", timeinfo);
+	std::string timeStr(buffer);
 
-	os << levelName[level] << '[' << asctime(tm) << fileName << " " << line << " " << ']' << " ";
+	os << levelName[level] << '[' << timeStr << fileName << " " << line << " " << ']' << " ";
 	return os;
 }
 
