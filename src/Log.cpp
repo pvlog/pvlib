@@ -21,7 +21,9 @@ std::ostringstream& Log::get(Level level, const char* file, int line) {
 	const char *fileName = filename(file);
 	std::time_t curTime = std::time(nullptr);
 
-	os << levelName[level] << '[' << ctime(&curTime) << fileName << " " << line << " " << ']' << " ";
+	std::tm* tm = localtime(&curTime);
+
+	os << levelName[level] << '[' << asctime(tm) << fileName << " " << line << " " << ']' << " ";
 	return os;
 }
 
