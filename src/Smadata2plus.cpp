@@ -1172,7 +1172,7 @@ int32_t convert_dc_voltage(uint32_t value) {
 
 int32_t convert_dc_current(uint32_t value) {
 	if ((int32_t)value != PVLIB_INVALID_S32) {
-		return (int32_t)value * 1000 / VOLTAGE_DIVISOR;
+		return (int32_t)value * 1000 / CURRENT_DIVISOR;
 	} else {
 		return PVLIB_INVALID_S32;
 	}
