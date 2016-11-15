@@ -1254,7 +1254,7 @@ int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 
 int64_t convertStatsValue(uint64_t value) {
 	if (value != PVLIB_INVALID_U64) {
-		return (int64_t)value * 1000 / VOLTAGE_DIVISOR;
+		return (int64_t)value;
 	} else {
 		return PVLIB_INVALID_S64;
 	}
