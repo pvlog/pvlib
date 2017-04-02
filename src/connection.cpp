@@ -1,5 +1,5 @@
 /*
- *   Pvlib - Protocol interface
+ *   Pvlib - Connection interface
  *
  *   Copyright (C) 2011
  *
@@ -18,14 +18,18 @@
  *
  *****************************************************************************/
 
-#include <Protocol.h>
+#include "connection.h"
 
 namespace pvlib {
 
-extern ProtocolInfo smadata2plusProtocolInfo;
+extern ConnectionInfo rfcommConnectionInfo;
 
-const std::vector<const ProtocolInfo*> Protocol::availableProtocols = {
-	&smadata2plusProtocolInfo
+const std::vector<const ConnectionInfo*> Connection::availableConnections = {
+	&rfcommConnectionInfo
 };
 
 } //namespace pvlib {
+
+
+
+

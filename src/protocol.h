@@ -23,7 +23,8 @@
 
 #include <vector>
 #include <cstdint>
-#include <pvlib.h>
+
+#include "pvlib.h"
 
 //typedef struct protocol_s protocol_t;
 //

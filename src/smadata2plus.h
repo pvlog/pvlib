@@ -21,12 +21,12 @@
 #ifndef SMADATA2PLUS_H
 #define SMADATA2PLUS_H
 
-#include <Protocol.h>
 #include <cstring>
 #include <unordered_map>
 
-#include "Smanet.h"
-#include "Smabluetooth.h"
+#include "protocol.h"
+#include "smabluetooth.h"
+#include "smanet.h"
 
 namespace pvlib {
 

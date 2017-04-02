@@ -18,6 +18,7 @@
  *
  *****************************************************************************/
 
+#include <smadata2plus.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +27,6 @@
 #include <ctime>
 
 #include "pvlib.h"
-#include "Smadata2plus.h"
 
 static void print_usage() {
 	printf("Usage: pvlib MAC PASSWORD\n");

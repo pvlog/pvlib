@@ -30,15 +30,15 @@
 #include <algorithm>
 #include <fstream>
 
-#include <Protocol.h>
-#include <Smabluetooth.h>
-#include <Smadata2plus.h>
-#include <Smanet.h>
-
-#include "Log.h"
 #include "byte.h"
 #include "pvlib.h"
 #include "resources.h"
+#include "log.h"
+#include "protocol.h"
+#include "smabluetooth.h"
+#include "smadata2plus.h"
+#include "smanet.h"
+
 
 namespace pvlib {
 

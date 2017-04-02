@@ -1,8 +1,9 @@
 #ifndef RFCOMM_H
 #define RFCOMM_H
 
-#include <Connection.h>
 #include <memory>
+
+#include "connection.h"
 
 namespace pvlib {
 

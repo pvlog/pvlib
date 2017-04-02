@@ -18,7 +18,6 @@
  *
  *****************************************************************************/
 
-#include <Smabluetooth.h>
 #include <cstring>
 #include <cstddef>
 #include <cstdlib>
@@ -26,8 +25,9 @@
 #include <cassert>
 #include <algorithm>
 
-#include "Log.h"
-#include "Connection.h"
+#include "connection.h"
+#include "log.h"
+#include "smabluetooth.h"
 
 namespace pvlib {
 

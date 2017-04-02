@@ -23,7 +23,7 @@
 
 #include <cstdint>
 
-#include "ReadWrite.h"
+#include "readWrite.h"
 
 namespace pvlib {
 

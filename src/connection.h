@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "ReadWrite.h"
+#include "readWrite.h"
 
 //#include "pvlib.h"
 

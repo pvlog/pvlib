@@ -1,8 +1,9 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include <utility.h>
 #include <sstream>
+
+#include "utility.h"
 
 namespace pvlib {
 

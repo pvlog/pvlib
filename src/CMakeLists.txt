@@ -1,13 +1,13 @@
 set(src
-	Rfcomm.cpp
-	Smabluetooth.cpp
-	Smadata2plus.cpp
-	Protocol.cpp
-	Smanet.cpp
-	Connection.cpp
+	rfcomm.cpp
+	smabluetooth.cpp
+	smadata2plus.cpp
+	protocol.cpp
+	smanet.cpp
+	connection.cpp
 	pvlib.cpp
 	resources.cpp
-	Log.cpp
+	log.cpp
 )
 	
 #add_library(pvlib SHARED ${src})

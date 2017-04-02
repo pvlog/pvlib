@@ -21,9 +21,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-#include <Smanet.h>
 
-#include "Log.h"
+#include "log.h"
+#include "smanet.h"
 
 namespace pvlib {
 

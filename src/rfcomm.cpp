@@ -25,8 +25,6 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 
-#include "Rfcomm.h"
-
 //workaround for libbluetooth
 //gcc compiled with c99 or c++0x does nor define typeof
 //which is needed by libbluetooth
@@ -49,8 +47,9 @@
 #	endif
 #endif
 
-#include "Log.h"
-#include <Connection.h>
+#include "connection.h"
+#include "log.h"
+#include "rfcomm.h"
 
 namespace pvlib {
 

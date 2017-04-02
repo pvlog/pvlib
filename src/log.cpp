@@ -1,9 +1,9 @@
-#include "Log.h"
-
 #include <cstring>
 #include <cstdio>
 #include <ctime>
 #include <iomanip>
+
+#include "log.h"
 
 namespace pvlib {
 

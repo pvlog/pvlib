@@ -18,13 +18,13 @@
  *
  *****************************************************************************/
 
+
 #include <stdlib.h>
 #include <malloc.h>
-#include <Protocol.h>
 
+#include "connection.h"
+#include "protocol.h"
 #include "pvlib.h"
-#include "Connection.h"
-#include "Protocol.h"
 
 using namespace pvlib;
 

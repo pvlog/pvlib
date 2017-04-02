@@ -28,7 +28,7 @@
 #include <atomic>
 #include <queue>
 
-#include "ReadWrite.h"
+#include "readWrite.h"
 
 namespace pvlib {
 
