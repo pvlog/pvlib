@@ -128,6 +128,16 @@ typedef struct pvlib_event {
 void pvlib_init(FILE *fd);
 
 /**
+ * Get pvlib version.
+ */
+void pvlib_get_version(int* major, int* minor, int* patch);
+
+/**
+ * Returns the complete pvlib version string.
+ */
+const char* pvlib_get_version_string();
+
+/**
  * Shutdown pvlib.
  */
 void pvlib_shutdown(void);

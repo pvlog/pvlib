@@ -41,6 +41,9 @@ if(NOT DOC_TARGET)
 endif()
 add_dependencies(doc doxygen)
 
+configure_file(config.h.in config.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
 
 #
 #pvlib library

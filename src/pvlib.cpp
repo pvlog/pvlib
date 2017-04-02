@@ -25,6 +25,7 @@
 #include "connection.h"
 #include "protocol.h"
 #include "pvlib.h"
+#include "config.h"
 
 using namespace pvlib;
 
@@ -32,6 +33,16 @@ struct pvlib_plant {
 	Connection *con;
 	Protocol *protocol;
 };
+
+void pvlib_version(int* major, int* minor, int* patch) {
+	*major = MAJOR_VERSION;
+	*minor = MINOR_VERSION;
+	*patch = PATCH_VERSION;
+}
+
+const char* pvlib_get_version_string() {
+	return VERSION_STRING;
+}
 
 int pvlib_connection_num(void) {
 	return Connection::availableConnections.size();
