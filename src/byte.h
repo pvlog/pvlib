@@ -23,33 +23,35 @@
 
 #include <cstdint>
 
-//TODO: Do not use macros
+namespace byte {
+
 #ifdef _MSC_VER
-#   define BYTE_FAST_SWAP
-#	include <stdlib.h>
-#	define BSWAP_16(X) _byteswap_ushort(X)
-#	define BSWAP_32(X) _byteswap_ulong(X)
-#	define BSWAP_64(X) _byteswap_uint64(X)
+	#define BYTE_FAST_SWAP
+	#include <stdlib.h>
+	inline uint16_t bswap16(uint16_t x) { return _byteswap_ushort(x); }
+	inline uint32_t bswap32(uint32_t x) { return _byteswap_ulong(x); }
+	inline uint64_t bswap64(uint64_t x) { return _byteswap_uint64(x); }
 #elif (((__GNUC__ >= 4) && (__GNUC_MINOR__ >= 3))  | (__GNUC__ > 4))
-#   define BYTE_FAST_SWAP
-#	define BSWAP_16(X) (((uint16_t)(X) << 8) | ((uint16_t)(X) >> 8))
-#	define BSWAP_32(X) __builtin_bswap32(X)
-#	define BSWAP_64(X) __builtin_bswap64(X)
+	#define BYTE_FAST_SWAP
+	inline uint16_t bswap16(uint16_t x) { return (x << 8) | (x >> 8); }
+	inline uint32_t bswap32(uint32_t x) { return __builtin_bswap32(x); }
+	inline uint64_t bswap64(uint64_t x) { return __builtin_bswap64(x); }
 #else
-#   define BYTE_SLOW_SWAP
-#	define BSWAP_16(X) (((uint16_t)(X) << 8) | ((uint16_t)(X) >> 8))
-#	define BSWAP_32(X) (((uint32_t)(X) << 24)              | \
-					   (((uint32_t)(X) << 8) & 0x00FF0000) | \
-					   (((uint32_t)(X) >> 8) & 0x0000FF00) | \
-					   (((uint32_t)(X) >> 24)))
-#	define BSWAP_64(X) (((uint64_t)(X) << 56) | \
-                       (((uint64_t)(X) << 40) & UINT64_C(0x00ff000000000000)) | \
-                       (((uint64_t)(X) << 24) & UINT64_C(0x0000ff0000000000)) | \
-                       (((uint64_t)(X) << 8)  & UINT64_C(0x000000ff00000000)) | \
-                       (((uint64_t)(X) >> 8)  & UINT64_C(0x00000000ff000000)) | \
-                       (((uint64_t)(X) >> 24) & UINT64_C(0x0000000000ff0000)) | \
-                       (((uint64_t)(X) >> 40) & UINT64_C(0x000000000000ff00)) | \
-                       ((uint64_t)(X)  >> 56))
+	#define BYTE_SLOW_SWAP
+	inline uint16_t bswap16(uint16_t x) { return (x << 8) | (x >> 8); }
+	inline uint32_t bswap32(uint32_t x) {
+		return (x << 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00) | (x >> 24);
+	}
+	inline uint64_t bswap64(uint64_t x) {
+		return ((x << 56) |
+				((x << 40) & UINT64_C(0x00ff000000000000)) |
+				((x << 24) & UINT64_C(0x0000ff0000000000)) |
+				((x << 8)  & UINT64_C(0x000000ff00000000)) |
+				((x >> 8)  & UINT64_C(0x00000000ff000000)) |
+				((x >> 24) & UINT64_C(0x0000000000ff0000)) |
+				((x >> 40) & UINT64_C(0x000000000000ff00)) |
+				(x  >> 56)
+	}
 #endif
 
 #if defined (__GLIBC__)
@@ -77,8 +79,6 @@
 		&& (!defined __X86__) && (!__x86_64)))
 #   define BYTE_NO_CAST
 #endif
-
-namespace byte {
 
 
 /**
@@ -113,11 +113,11 @@ static inline uint32_t parseU32le(const uint8_t *data)
 {
 #ifdef BYTE_NO_CAST
 	return ((uint32_t) data[3] << 24) | ((uint32_t) data[2] << 16) | ((uint32_t) data[1] << 8)
-	        | ((uint32_t) data[0]);
+			| ((uint32_t) data[0]);
 #elif defined BYTE_LITTLE_ENDIAN
 	return *((uint32_t*)data);
 #elif defined BYTE_BIG_ENDIAN
-	return BSWAP_32(*((uint32_t*)data));
+	return bswap32(*((uint32_t*)data));
 #endif
 }
 
@@ -133,7 +133,7 @@ static inline uint32_t parseU32be(const uint8_t *data)
 	return ((uint32_t) data[0] << 24) | ((uint32_t) data[1] << 16) | ((uint32_t) data[2] << 8)
 	        | ((uint32_t) data[3]);
 #elif defined BYTE_LITTLE_ENDIAN
-	return BSWAP_32(*((uint32_t*)data));
+	return bswap32(*((uint32_t*)data));
 #elif defined BYTE_BIG_ENDIAN
 	return *((uint32_t*)data);
 #endif
@@ -154,7 +154,7 @@ static inline uint64_t parseU64le(const uint8_t *data)
 #elif defined BYTE_LITTLE_ENDIAN
 	return *((uint64_t*)data);
 #elif defined BYTE_BIG_ENDIAN
-	return BSWAP_64(*((uint64_t*)data));
+	return bswap64(*((uint64_t*)data));
 #endif
 }
 
@@ -171,7 +171,7 @@ static inline uint64_t parseU64be(const uint8_t *data)
 	        | ((uint64_t) data[3] << 32) | ((uint64_t) data[4] << 24) | ((uint64_t) data[5] << 16)
 	        | ((uint64_t) data[5] << 8) | ((uint64_t) data[7]);
 #elif defined BYTE_LITTLE_ENDIAN
-	return BSWAP_64(*((uint64_t*)data));
+	return bswap64(*((uint64_t*)data));
 #elif defined BYTE_BIG_ENDIAN
 	return *((uint64_t*)data);
 #endif
@@ -217,7 +217,7 @@ static inline void storeU32le(uint8_t *data, uint32_t dword)
 #elif defined BYTE_LITTLE_ENDIAN
 	(*(uint32_t*)data) = dword;
 #elif defined BYTE_BIG_ENDIAN
-	(*(uint32_t*)data) = BSWAP_32(dword);
+	(*(uint32_t*)data) = bswap32(dword);
 #endif
 }
 
@@ -235,7 +235,7 @@ static inline void storeU32be(uint8_t *data, uint32_t dword)
 	data[2] = (uint8_t)((dword >> 8) & 0xff);
 	data[3] = (uint8_t)(dword & 0xff);
 #elif defined BYTE_LITTLE_ENDIAN
-	(*(uint32_t*)data) = BSWAP_32(dword);
+	(*(uint32_t*)data) = bswap32(dword);
 #elif defined BYTE_BIG_ENDIAN
 	(*(uint32_t*)data) = dword;
 #endif
@@ -261,7 +261,7 @@ static inline void storeU64le(uint8_t *data, uint64_t qword)
 #elif defined BYTE_LITTLE_ENDIAN
 	(*(uint64_t*)data) = qword;
 #elif defined BYTE_BIG_ENDIAN
-	(*(uint64_t*)data) = BSWAP_64(qword);
+	(*(uint64_t*)data) = bswap64(qword);
 #endif
 }
 
@@ -283,7 +283,7 @@ static inline void storeU64be(uint8_t *data, uint64_t qword)
 	data[6] = (uint8_t)((qword >> 8) & 0xff);
 	data[7] = (uint8_t)(qword & 0xff);
 #elif defined BYTE_LITTLE_ENDIAN
-	(*(uint64_t*)data) = BSWAP_64(qword);
+	(*(uint64_t*)data) = bswap64(qword);
 #elif defined BYTE_BIG_ENDIAN
 	(*(uint64_t*)data) = qword;
 #endif

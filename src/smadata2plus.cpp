@@ -925,7 +925,6 @@ int Smadata2plus::syncTime() {
 	}
 
 	//FIXME: SunnyExplorer sends an packet with inverter time
-	//
 
 	time_t cur_time = time(NULL);
 

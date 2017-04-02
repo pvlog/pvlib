@@ -26,64 +26,6 @@
 
 #include "pvlib.h"
 
-//typedef struct protocol_s protocol_t;
-//
-//typedef struct protocol_info_s {
-//	const char *name;
-//	const char *author;
-//	const char *comment;
-//	int (*open)(protocol_t *, connection_t *, const char *params);
-//} protocol_info_t;
-//
-//struct protocol_s {
-//	pvlib_protocol_t protocol;
-//	void *handle;
-//
-//	int (*connect)(protocol_t *, const char *, const void *param);
-//	void (*disconnect)(protocol_t*);
-//	int (*get_devices)(protocol_t*, uint32_t*, int);
-//	int (*inverter_num)(protocol_t *);
-//	void (*close)(protocol_t*);
-//	int (*get_dc)(protocol_t *, uint32_t id, pvlib_dc_t *);
-//	int (*get_ac)(protocol_t *, uint32_t id, pvlib_ac_t *);
-//	int (*get_stats)(protocol_t *, uint32_t id, pvlib_stats_t *);
-//	int (*get_status)(protocol_t *, uint32_t id, pvlib_status_t *);
-//	int (*get_inverter_info)(protocol_t *, uint32_t id, pvlib_inverter_info_t *);
-//};
-
-//int protocol_num(void);
-//
-//int protocol_supported(uint32_t *handle, int max_handles);
-//
-//const char *protocol_name(uint32_t handle);
-//
-//const char *protocol_author(uint32_t handle);
-//
-//const char *protocol_comment(uint32_t handle);
-//
-//protocol_t *protocol_open(uint32_t handle, connection_t *con, const char *params);
-//
-//int protocol_connect(protocol_t *protocol, const char *password, const void *param);
-//
-//void protocol_disconnect(protocol_t *protocol);
-//
-//int protocol_inverter_num(protocol_t *);
-//
-//int protocol_get_devices(protocol_t * protocol, uint32_t *id, int max_inverters);
-//
-//int protocol_dc(protocol_t *protocol, uint32_t id, pvlib_dc_t *dc);
-//
-//int protocol_ac(protocol_t *protocol, uint32_t id, pvlib_ac_t *dc);
-//
-//int protocol_stats(protocol_t *protocol, uint32_t id, pvlib_stats_t *stats);
-//
-//int protocol_status(protocol_t *protocol, uint32_t id, pvlib_status_t *status);
-//
-//int protocol_inverter_info(protocol_t *protocol, uint32_t id, pvlib_inverter_info_t *inverter_info);
-//
-//void protocol_close(protocol_t *protocol);
-//
-
 namespace pvlib {
 
 class Connection;
