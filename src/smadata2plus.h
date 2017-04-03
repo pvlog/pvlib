@@ -94,7 +94,7 @@ public:
 	};
 
 	struct EventData {
-	    int32_t  time;
+		int32_t  time;
 		uint16_t entryId;
 		uint16_t sysId;
 		uint32_t serial;

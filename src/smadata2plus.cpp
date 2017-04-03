@@ -126,29 +126,6 @@ enum {
 	DEVICE_STATUS = 0x2148
 };
 
-//struct tag_hash {
-//    int num;
-//    char tag[128];
-//    char message[256];
-//
-//    UT_hash_handle hh;
-//};
-
-
-//struct smadata2plus_s {
-//	connection_t *con;
-//	smabluetooth_t *sma;
-//	smanet_t *smanet;
-//	uint16_t transaction_cntr; // Packet counter
-//	bool transaction_active;
-//
-//	device_t *devices;
-//	int device_num;
-//
-//	struct tag_hash *tags;
-//
-//};
-
 struct Attribute {
 	uint32_t attribute;
 	bool     selected;
@@ -369,74 +346,6 @@ int Smadata2plus::readTags(const std::string& file) {
 	return 0;
 }
 
-//static int add_tag(smadata2plus_t *sma, int tag_num, const char* tag, const char* tag_message)
-//{
-//    struct tag_hash *s;
-//    s = malloc(sizeof(*s));
-//    if (s == NULL) {
-//        LOG_ERROR("malloc failed!");
-//        return -1;
-//    }
-//
-//    s->num = tag_num;
-//    strncpy(s->tag, tag, sizeof(s->tag) - 1);
-//    strncpy(s->message, tag_message, sizeof(s->message) - 1);
-//
-//    HASH_ADD_INT(sma->tags, num, s);
-//
-//    return 0;
-//}
-//
-//static struct tag_hash *find_tag(smadata2plus_t *sma, int num)
-//{
-//    struct tag_hash *s;
-//
-//    HASH_FIND_INT(sma->tags, &num, s);
-//
-//    return s;
-//}
-//
-//static int read_tags(smadata2plus_t *sma, FILE *file) {
-//	int ret;
-//
-//	char buf[256];
-//	char tag_num[256];
-//	char tag[256];
-//	char tag_name[256];
-//
-//	while (fgets(buf, sizeof(buf), file) != NULL ) {
-//		if (buf[0] == '#') { //remove comments
-//			continue;
-//		}
-//
-//		if (sscanf(buf, "%[^'=']=%[^';'];%s", tag_num, tag, tag_name) != 3) {
-//			LOG_ERROR("Invalid line %s (Ignoring it)", buf);
-//			continue;
-//		}
-//
-//		errno = 0;
-//		long num = strtol(tag_num, NULL, 10);
-//		if (errno != 0) {
-//			LOG_ERROR("Error parsing tag number from %s", tag_num);
-//			return -1;
-//		}
-//
-//		if ((ret = add_tag(sma, num, tag, tag_name)) < 0) {
-//			return ret;
-//		}
-//	}
-//
-//	if (ferror(file)) {
-//		LOG_ERROR("Error reading tag file: %s", strerror(errno));
-//		fclose(file);
-//		return -1;
-//	}
-//
-//	fclose(file);
-//	return 0;
-//}
-
-
 static Smadata2plus::Device *getDevice(std::vector<Smadata2plus::Device> &devices, uint32_t serial) {
 	for (Smadata2plus::Device& device : devices) {
 		if (device.serial == serial) {
@@ -508,19 +417,6 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	std::string to(mac_dst, 6);
 	return smanet.write(buf, size + packet->len, to);
 }
-
-//static void begin_transaction(smadata2plus_t *sma)
-//{
-//	assert(sma->transaction_active == false);
-//	sma->transaction_active = true;
-//}
-//
-//static void end_transaction(smadata2plus_t *sma)
-//{
-//	assert(sma->transaction_active == true);
-//	sma->transaction_active = false;
-//	inc_transaction_cntr(sma);
-//}
 
 int Smadata2plus::write(const Packet *packet) {
 	return writeReplay(packet, transaction_cntr);
@@ -808,41 +704,6 @@ int Smadata2plus::authenticate(const char *password, UserType user)
 
 	return 0;
 }
-
-//static smadata2plus_t *init(connection_t *con)
-//{
-//	smadata2plus_t *sma;
-//	smabluetooth_t *smabluetooth;
-//	smanet_t *smanet;
-//
-//	smabluetooth = smabluetooth_init(con);
-//	if (smabluetooth == NULL) return NULL;
-//
-//	smanet = smanet_init(PROTOCOL, NULL, smabluetooth);
-//	if (smanet == NULL) return NULL;
-//
-//	sma = calloc(1, sizeof(*sma));
-//
-//	sma->con = con;
-//	sma->sma = smabluetooth;
-//	sma->smanet = smanet;
-//	sma->tags = NULL;
-//
-//	sma->transaction_active = false;
-//	reset_transaction_cntr(&sma->transaction_cntr);
-//
-//	return sma;
-//}
-//
-//void smadata2plus_close(protocol_t *protocol)
-//{
-//	smadata2plus_t *sma = protocol->handle;
-//	smabluetooth_close(sma->sma);
-//	smanet_close(sma->smanet);
-//
-//	free(sma);
-//	free(protocol);
-//}
 
 int Smadata2plus::syncTime() {
 	Packet packet;
@@ -1462,23 +1323,6 @@ int Smadata2plus::readInverterInfo(uint32_t id, pvlib_inverter_info *inverter_in
 	return 0;
 }
 
-//struct EventData {
-//    int32_t  time;
-//	uint16_t entryId;
-//	uint16_t sysId;
-//	uint32_t serial;
-//	uint16_t eventCode;
-//	uint16_t eventFlags;
-//	uint32_t group;
-//	uint32_t unknown;
-//	uint32_t tag;
-//	uint32_t counter;
-//	uint32_t dtChange;
-//	uint32_t parameter;
-//	uint32_t newVal;
-//	uint32_t oldVal;
-//};
-
 static Smadata2plus::EventData parseEventData(uint8_t *buf, int len) {
 	Smadata2plus::EventData ed;
 
@@ -1787,61 +1631,6 @@ int Smadata2plus::getDevices(uint32_t* ids, int max_num) {
 void Smadata2plus::disconnect() {
 	sma.disconnect();
 }
-
-//int smadata2plus_open(protocol_t *prot, connection_t *con, const char* params) {
-//	smadata2plus_t *sma;
-//	int ret;
-//
-//	sma = init(con);
-//
-//	if (sma == NULL)
-//		return -1;
-//
-//	FILE *tag_file = NULL;
-//	size_t file_length = strlen("en_US_tags.txt");
-//	char tag_path[strlen(resources_path()) + 1 + file_length + 1];
-//	if (params != NULL && strlen(params) == 5) {
-//		;
-//		strcpy(tag_path, resources_path());
-//		strcat(tag_path, params);
-//		strcat(tag_path, "_tags.txt");
-//
-//		tag_file = fopen(tag_path, "r");
-//		if (tag_file == NULL) {
-//			LOG_ERROR("tag file for local %s doesn't exist.", params);
-//		}
-//	}
-//
-//	if (tag_file == NULL) {
-//		strcpy(tag_path, resources_path());
-//		strcat(tag_path, "en_US_tags.txt");
-//		tag_file = fopen(tag_path, "r");
-//	}
-//
-//	if (tag_file == NULL) {
-//		LOG_ERROR("tag file  %s doesn't exist.", tag_path);
-//		return -1;
-//	}
-//
-//	//params only contains filename to tag file
-//	if ((ret = read_tags(sma, tag_file)) < 0) {
-//		return ret;
-//	}
-//
-//	prot->handle = sma;
-//	prot->inverter_num = smadata2plus_device_num;
-//	prot->get_devices = smadata2plus_get_devices;
-//	prot->connect = smadata2plus_connect;
-//	prot->disconnect = disconnect;
-//	prot->get_stats = get_stats;
-//	prot->get_ac = get_ac;
-//	prot->get_dc = get_dc;
-//	prot->get_status = get_status;
-//	prot->close = smadata2plus_close;
-//	prot->get_inverter_info = get_inverter_info;
-//
-//	return 0;
-//}
 
 static Protocol *createSmadata2plus(Connection *con) {
 	return new Smadata2plus(con);

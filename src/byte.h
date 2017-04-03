@@ -451,8 +451,8 @@ public:
 	}
 };
 
-} //namespace byte {
+} // namespace byte {
 
-#undef BYTE_NO_CAST /* not needed anymore */
+#undef BYTE_NO_CAST // not needed anymore
 
 #endif /* #ifndef BYTE_H */

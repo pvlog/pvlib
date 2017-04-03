@@ -28,7 +28,7 @@ const std::vector<const ConnectionInfo*> Connection::availableConnections = {
 	&rfcommConnectionInfo
 };
 
-} //namespace pvlib {
+} // namespace pvlib {
 
 
 

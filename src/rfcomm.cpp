@@ -107,8 +107,7 @@ int Rfcomm::connect(const char *address, const void *param) {
 		goto err;
 	}
 
-	if (hci_read_remote_name(s, (bdaddr_t*)dst_mac, 128, dst_name, TIMEOUT * 1000)
-	        < 0) {
+	if (hci_read_remote_name(s, (bdaddr_t*)dst_mac, 128, dst_name, TIMEOUT * 1000) < 0) {
 		LOG(Error) << "Failed reading remote name: " << strerror(errno);
 		goto err;
 	}
@@ -180,25 +179,6 @@ int Rfcomm::read(uint8_t *data, int max_len, std::string& from)
 		return 0;
 	}
 }
-
-//static int Rfcomm::info( connection_data_t *info)
-//{
-//	struct rfcomm_handle *rfcomm;
-//	rfcomm = (struct rfcomm_handle *) con->handle;
-//
-//	memcpy(info->dst_address, rfcomm->dst_mac, 6);
-//	strncpy(info->dst_name, rfcomm->dst_name, CONNECTION_MAX_NAME - 1);
-//	info->dst_name[CONNECTION_MAX_NAME - 1] = '\0';
-//
-//	memcpy(info->src_address, rfcomm->src_mac, 6);
-//	strncpy(info->src_name, rfcomm->src_name, CONNECTION_MAX_NAME - 1);
-//	info->src_name[CONNECTION_MAX_NAME - 1] = '\0';
-//
-//	info->address_len = 6;
-//
-//	return 0;
-//}
-
 
 void Rfcomm::disconnect() {
 	if (connected) {

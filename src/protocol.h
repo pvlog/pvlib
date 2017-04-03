@@ -65,16 +65,16 @@ struct ProtocolInfo {
 	typedef Protocol* (*CreateProtocol)(Connection *con);
 
 	const CreateProtocol create;
-    const char *name;
-    const char *author;
-    const char *comment;
+	const char *name;
+	const char *author;
+	const char *comment;
 
-    ProtocolInfo(const CreateProtocol create, const char *name, const char *author, const char *comment) :
-    		create(create),
-    		name(name),
-			author(author),
-			comment(comment) {
-    }
+	ProtocolInfo(const CreateProtocol create, const char *name, const char *author, const char *comment) :
+				create(create),
+				name(name),
+				author(author),
+				comment(comment) {
+	}
 };
 
 } //namespace pvlib {

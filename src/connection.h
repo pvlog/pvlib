@@ -45,17 +45,6 @@ public:
 
 	virtual void disconnect() = 0;
 
-
-	/**
-	 * Give some usefull connection info.
-	 *
-	 * @param con connection handle.
-	 * @param[out] info @see connection_info_t.
-	 *
-	 * @return < 0, if error occurs.
-	 */
-	//int info(connection_data_t *info) = 0;
-
 	static const std::vector<const ConnectionInfo*> availableConnections;
 
 };
@@ -64,17 +53,17 @@ public:
 struct ConnectionInfo {
 	typedef Connection* (*CreateFunc)();
 
-    const CreateFunc create;
-    const char *name;
-    const char *author;
-    const char *comment;
+	const CreateFunc create;
+	const char *name;
+	const char *author;
+	const char *comment;
 
-    ConnectionInfo(const CreateFunc create, const char *name, const char *author, const char *comment) :
-    		create(create),
-    		name(name),
+	ConnectionInfo(const CreateFunc create, const char *name, const char *author, const char *comment) :
+			create(create),
+			name(name),
 			author(author),
 			comment(comment) {
-    }
+	}
 };
 
 } //namespace pvlib {

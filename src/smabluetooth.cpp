@@ -247,8 +247,8 @@ void Smabluetooth::worker_thread() {
 		//LOG_DEBUG("Got header");
 
 		//no lock required for sma->mac, only we(this thread) change it.
-		for_us = (memcmp(packet.mac_dst, mac, 6) == 0) || (memcmp(packet.mac_dst, MAC_NULL, 6)
-		        == 0) || (memcmp(packet.mac_dst, MAC_BROADCAST, 6) == 0);
+		for_us = (memcmp(packet.mac_dst, mac, 6) == 0) || (memcmp(packet.mac_dst, MAC_NULL, 6) == 0)
+				|| (memcmp(packet.mac_dst, MAC_BROADCAST, 6) == 0);
 
 		if (((packet.cmd == 0x01) || (packet.cmd == 0x08)) && for_us) {
 			LOG(Trace) << "received smadata2plus packet:\n" << print_array(packet.data, packet.len);
