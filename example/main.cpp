@@ -18,15 +18,14 @@
  *
  *****************************************************************************/
 
-#include <smadata2plus.h>
+
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <unistd.h>
 #include <ctime>
 
-#include "pvlib.h"
+#include <pvlib.h>
 
 static void print_usage() {
 	printf("Usage: pvlib MAC PASSWORD\n");
@@ -56,14 +55,11 @@ int main(int argc, char **argv) {
 	uint32_t con;
 	uint32_t prot;
 
-//    smadata2plus_t *sma;
-
 	if (argc < 3) {
 		print_usage();
 		return -1;
 	}
 
-	//Initialize pvlib
 	pvlib_init(stderr);
 
 	con_num = pvlib_connections(con_handles, 10);
@@ -119,56 +115,54 @@ int main(int argc, char **argv) {
 	}
 
 	if (inv_num > 1) {
-		fprintf(stderr, "more than %d inverter, but only 1 is supported!\n",
+		fprintf(stderr, "more than %d inverter, but only 1 is currently supported!\n",
 				inv_num);
 		return EXIT_FAILURE;
 	}
-	/*
-	 if (pvlib_device_handles(plant, &inv_handle, 1) < 0) {
-	 fprintf(stderr, "Failed getting inverter handle!\n");
-	 return EXIT_FAILURE;
-	 }
-	 */
+
 	if (pvlib_device_handles(plant, &inv_handle, 1) != 1) {
 		fprintf(stderr, "Error getting inverter handle\n");
 		return -1;
 	}
 
-	for (i = 0; i < 1; i++) {
-		if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
-			fprintf(stderr, "get live values failed!\n");
-			return -1;
-		}
-
-		if (pvlib_get_dc_values(plant, inv_handle, &dc) < 0) {
-			fprintf(stderr, "get live values failed!\n");
-			return -1;
-		}
-
-		if (pvlib_get_stats(plant, inv_handle, &stats) < 0) {
-			fprintf(stderr, "get stats failed!\n");
-			return -1;
-		}
-
-		if (pvlib_get_status(plant, inv_handle, &status) < 0) {
-			fprintf(stderr, "get stats failed!\n");
-			return -1;
-		}
-
-		if (pvlib_get_inverter_info(plant, inv_handle, &inverter_info) < 0) {
-			fprintf(stderr, "get stats failed!\n");
-			return -1;
-		}
-		printf("Manufacture: %s\n", inverter_info.manufacture);
-		printf("Type: %s\n", inverter_info.type);
-		printf("Name: %s\n", inverter_info.name);
-		printf("Firmware: %s\n", inverter_info.firmware_version);
-
-		printf("status: %d %d\n", status.status, status.number);
-
-		sleep(1);
+	// Read inverter ac data
+	if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
+		fprintf(stderr, "get live values failed!\n");
+		return -1;
 	}
 
+	// Read inverter dc data
+	if (pvlib_get_dc_values(plant, inv_handle, &dc) < 0) {
+		fprintf(stderr, "get live values failed!\n");
+		return -1;
+	}
+
+	// Read inverter stats
+	if (pvlib_get_stats(plant, inv_handle, &stats) < 0) {
+		fprintf(stderr, "get stats failed!\n");
+		return -1;
+	}
+
+	// Read inverter status
+	if (pvlib_get_status(plant, inv_handle, &status) < 0) {
+		fprintf(stderr, "get status failed!\n");
+		return -1;
+	}
+
+	// Read inverter info
+	if (pvlib_get_inverter_info(plant, inv_handle, &inverter_info) < 0) {
+		fprintf(stderr, "get info failed!\n");
+		return -1;
+	}
+	printf("Manufacture: %s\n", inverter_info.manufacture);
+	printf("Type: %s\n", inverter_info.type);
+	printf("Name: %s\n", inverter_info.name);
+	printf("Firmware: %s\n", inverter_info.firmware_version);
+
+	printf("status: %d %d\n", status.status, status.number);
+
+
+	// Read day yield of the last seven years
 	time_t to = time(0);
 	time_t from = to - 24 * 60 * 60 * 7;
 
@@ -184,6 +178,7 @@ int main(int argc, char **argv) {
 		printf("%s: %d\n", ctime(&dayYield[i].date), (int32_t)dayYield[i].dayYield);
 	}
 
+	// Read events of the last seven years
 	pvlib_event *events;
 	int eventNum;
 	from = 0;
@@ -197,69 +192,7 @@ int main(int argc, char **argv) {
 		printf("%s: %s (%d)\n", ctime(&events[i].time), events[i].message, events[i].value);
 	}
 
-//	time_t to = time(0);
-//	time_t from = to - 24 * 60 * 60 * 7;
-//
-//	Smadata2plus *sma = (Smadata2plus*) pvlib_protocol_handle(plant);
-//
-//	std::vector<Smadata2plus::EventData> eventData;
-//	if (sma->readEventData(inv_handle, from, to, Smadata2plus::USER, eventData)
-//			< 0) {
-//		fprintf(stderr, "Error reading event data!");
-//		return -1;
-//	}
-//
-//	printf("Got %d events\n", eventData.size());
-//	for (const Smadata2plus::EventData& event : eventData) {
-//		time_t et = static_cast<time_t>(event.time);
-//		printf("Time: %s Tag: %d Code: %d Flags: %d\n", ctime(&et), event.tag,
-//				event.eventCode, event.eventFlags);
-//	}
-//
-//	std::vector<Smadata2plus::TotalDayData> dayData;
-//	if (sma->readTotalDayData(inv_handle, 0, to, dayData) < 0) {
-//		fprintf(stderr, "Error reading day data!");
-//		return -1;
-//	}
-//
-//	printf("Got %d days\n", dayData.size());
-//	for (const Smadata2plus::TotalDayData& day : dayData) {
-//		time_t et = static_cast<time_t>(day.time);
-//		printf("Time: %s Total: %d\n", ctime(&et), (int32_t)day.totalYield);
-//	}
-
-//    if (sma == NULL) {
-//        fprintf(stderr, "Could not get native connection handle!");
-//        return -1;
-//    }
-//
-//
-//    for (;;) {
-//        uint16_t channel;
-//        uint32_t from_index;
-//        uint32_t to_index;
-//        char buf[20];
-//
-//        printf("quit y, n?");
-//        fgets(buf, 20, stdin);
-//
-//        if (buf[0] == 'y') break;
-//
-//        printf("channel: ");
-//        fgets(buf, 20, stdin);
-//        channel = strtol(buf, NULL, 16);
-//
-//        printf("from index: ");
-//        fgets(buf, 20, stdin);
-//        from_index = strtol(buf, NULL, 16);
-//
-//        printf("to index: ");
-//        fgets(buf, 20, stdin);
-//        to_index = strtol(buf, NULL, 16);
-//
-//        smadata2plus_read_channel(sma, channel, from_index, to_index);
-//    }
-
+	// Close pvlib
 	pvlib_close(plant);
 	pvlib_shutdown();
 
