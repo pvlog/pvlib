@@ -12,7 +12,10 @@ set(src
 	
 add_library(pvlib ${src})
 target_link_libraries(pvlib bluetooth)
-set_target_properties(pvlib PROPERTIES PUBLIC_HEADER "pvlib.h")
+set_target_properties(pvlib PROPERTIES
+	PUBLIC_HEADER "pvlib.h"
+	VERSION ${PVLIB_VERSION}
+	SOVERSION ${PVLIB_MAJOR_VERSION})
 
 INSTALL(TARGETS pvlib
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
