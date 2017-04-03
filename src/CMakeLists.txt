@@ -10,10 +10,13 @@ set(src
 	utility.cpp
 )
 	
-#add_library(pvlib SHARED ${src})
 add_library(pvlib ${src})
 target_link_libraries(pvlib bluetooth)
+set_target_properties(pvlib PROPERTIES PUBLIC_HEADER "pvlib.h")
 
-#INSTALL(FILES pvlib.h DESTINATION include/pvlib)
-#INSTALL(TARGETS pvlib LIBRARY DESTINATION lib)
-#INSTALL(TARGETS pvlib ARCHIVE DESTINATION lib)
+INSTALL(TARGETS pvlib
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/pvlib
+)
+

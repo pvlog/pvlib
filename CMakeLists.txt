@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.0.2)
 
 project(Pvlib)
+
+include(GNUInstallDirs)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 0)
 set(${PROJECT_NAME}_MINOR_VERSION 0)
@@ -16,34 +18,31 @@ endif (CMAKE_COMPILER_IS_GNUCC)
 
 # check if doxygen is even installed
 find_package(Doxygen)
-if (NOT DOXYGEN_FOUND)
-    message(FATAL_ERROR "Doxygen not found. Please get a copy http://www.doxygen.org")
-endif (NOT DOXYGEN_FOUND)
+if (DOXYGEN_FOUND)
+	SET(DOXYGEN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-SET( DOXYGEN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pvlib")
+	STRING(REGEX REPLACE ";" " " CMAKE_DOXYGEN_INPUT_LIST "${DOXYGEN_SOURCE_DIR}")
 
-STRING(REGEX REPLACE ";" " " CMAKE_DOXYGEN_INPUT_LIST "${DOXYGEN_SOURCE_DIR}")
+	# prepare doxygen configuration file
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
-# prepare doxygen configuration file
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+	# add doxygen as target
+	add_custom_target(doxygen ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
-# add doxygen as target
-add_custom_target(doxygen ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+	# cleanup $build/api-doc on "make clean"
+	set_property(DIRECTORY APPEND PROPERTY
+		     ADDITIONAL_MAKE_CLEAN_FILES api-doc)
 
-# cleanup $build/api-doc on "make clean"
-set_property(DIRECTORY APPEND PROPERTY
-	     ADDITIONAL_MAKE_CLEAN_FILES api-doc)
-
-# add doxygen as dependency to doc-target
-get_target_property(DOC_TARGET doc TYPE)
-if(NOT DOC_TARGET)
+	# add doxygen as dependency to doc-target
 	add_custom_target(doc)
-endif()
-add_dependencies(doc doxygen)
+	add_dependencies(doc doxygen)
+endif (DOXYGEN_FOUND)
+
+#install resources
+install(DIRECTORY resources/ DESTINATION ${CMAKE_INSTALL_DATADIR}/pvlib)
 
 configure_file(config.h.in config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
 
 #
 #pvlib library
