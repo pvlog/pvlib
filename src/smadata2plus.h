@@ -42,6 +42,8 @@ class Transaction;
 class Smadata2plus : public Protocol {
 	friend Transaction;
 public:
+	DISABLE_COPY(Smadata2plus)
+
 	Smadata2plus(Connection *connection);
 
 	virtual ~Smadata2plus() {};

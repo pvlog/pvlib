@@ -30,6 +30,8 @@ namespace pvlib {
 
 class Smanet : public ReadWrite {
 public:
+	DISABLE_COPY(Smanet)
+
 	/**
 	 * Setup smanet.
 	 *

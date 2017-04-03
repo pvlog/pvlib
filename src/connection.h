@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "readWrite.h"
+#include "utility.h"
 
 namespace pvlib {
 
@@ -34,7 +35,6 @@ struct ConnectionInfo;
 class Connection : public ReadWrite {
 public:
 	virtual ~Connection() {};
-
 
 	/**
 	 * Connect to given address.

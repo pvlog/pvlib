@@ -32,8 +32,9 @@ enum Level {
 };
 
 class Log {
-	DISABLE_COPY(Log)
 public:
+	DISABLE_COPY(Log)
+
 	Log() {
 		//nothing to do
 	}

@@ -29,6 +29,7 @@
 #include <queue>
 
 #include "readWrite.h"
+#include "utility.h"
 
 namespace pvlib {
 
@@ -42,6 +43,8 @@ class Connection;
 
 class Smabluetooth : public ReadWrite {
 public:
+	DISABLE_COPY(Smabluetooth)
+
 	static const int HEADER_SIZE = 18;
 
 	struct Packet {

@@ -24,11 +24,14 @@
 #include <memory>
 
 #include "connection.h"
+#include "utility.h"
 
 namespace pvlib {
 
 class Rfcomm : public Connection {
 public:
+	DISABLE_COPY(Rfcomm)
+
 	Rfcomm();
 
 	virtual ~Rfcomm() override;
