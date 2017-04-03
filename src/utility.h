@@ -25,4 +25,12 @@
 	CLASS(const CLASS&) = delete; \
 	CLASS& operator=(const CLASS&) = delete;
 
+namespace pvlib {
+
+/**
+ * Returns path to resource folder
+ */
+const char *resources_path();
+}
+
 #endif /* #ifndef UTILITY_H */

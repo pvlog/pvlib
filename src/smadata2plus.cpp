@@ -32,7 +32,7 @@
 
 #include "byte.h"
 #include "pvlib.h"
-#include "resources.h"
+#include "utility.h"
 #include "log.h"
 #include "protocol.h"
 #include "smabluetooth.h"
