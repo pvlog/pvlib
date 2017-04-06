@@ -22,13 +22,20 @@
 #define LOG_H
 
 #include <sstream>
+#include <string>
+#include <unordered_set>
 
 #include "utility.h"
+#include "pvlib.h"
 
 namespace pvlib {
 
 enum Level {
-	Error = 0, Info, Warning, Debug, Trace
+	Error = PVLIB_LOG_ERROR,
+	Warning = PVLIB_LOG_WARNING,
+	Info = PVLIB_LOG_INFO,
+	Debug = PVLIB_LOG_DEBUG,
+	Trace = PVLIB_LOG_TRACE,
 };
 
 class Log {
@@ -40,10 +47,16 @@ public:
 	}
 	virtual ~Log();
 
-	std::ostringstream& get(Level level, const char* file, int line);
+	std::ostringstream& get(Level level, const char* module, const char* file, int line);
 
-	static Level& reportingLevel() {
+	static void init(pvlib_log_func, const char* modules[], pvlib_log_level);
+
+	static Level getReportingLevel() {
 		return messageLevel;
+	}
+
+	static const std::unordered_set<std::string>& getLogModules() {
+		return logModules;
 	}
 
 protected:
@@ -52,6 +65,15 @@ protected:
 	static const char *filename(const char *file);
 
 	static Level messageLevel;
+
+	static std::unordered_set<std::string> logModules;
+
+	static pvlib_log_func logCallback;
+
+	const char* module = nullptr;
+	const char* file   = nullptr;
+	int line  = 0;
+	int level = 0;
 };
 
 struct print_array {
@@ -63,11 +85,16 @@ struct print_array {
 
 std::ostream& operator<<(std::ostream& o, const print_array& a);
 
+#ifndef PVLIB_LOG_MODULE
+#	define PVLIB_LOG_MODULE "global"
+#endif
+
+
 #define LOG(LEVEL) \
-if (LEVEL > Log::reportingLevel()) \
+if (LEVEL > Log::getReportingLevel() || ((Log::getLogModules().size() != 0) && (Log::getLogModules().count(PVLIB_LOG_MODULE) == 0))) \
 ; \
 else \
-Log().get(LEVEL, __FILE__, __LINE__)
+Log().get(LEVEL, PVLIB_LOG_MODULE, __FILE__, __LINE__)
 
 } //namespace pvlib {
 

@@ -27,26 +27,35 @@
 
 namespace pvlib {
 
-const static char *levelName[] = { "ERROR", "INFO", "WARNING", "DEBUG", "TRACE" };
-
 Level Log::messageLevel = Trace;
+pvlib_log_func Log::logCallback = nullptr;
+std::unordered_set<std::string> Log::logModules;
 
 Log::~Log() {
 	os << std::endl;
-	fprintf(stderr, "%s", os.str().c_str());
-	fflush(stderr);
+	std::string str = os.str();
+	if (logCallback != nullptr) {
+		logCallback(module, file, line, static_cast<pvlib_log_level>(level), str.c_str());
+	}
 }
 
-std::ostringstream& Log::get(Level level, const char* file, int line) {
-	const char *fileName = filename(file);
-	time_t curTime = time(nullptr);
-	char buffer[30];
+void Log::init(pvlib_log_func logCallback, const char* modules[], pvlib_log_level level) {
+	if (modules != nullptr) {
+		for (int i = 0; modules != nullptr && modules[i] != nullptr; ++i) {
+			logModules.emplace(modules[i]);
+		}
+	}
 
-	tm* timeinfo = localtime(&curTime);
-	strftime(buffer,80,"%Y-%m-%d %T", timeinfo);
-	std::string timeStr(buffer);
+	Log::logCallback  = logCallback;
+	Log::messageLevel = static_cast<Level>(level);
+}
 
-	os << levelName[level] << '[' << timeStr << " " << fileName << ":" << line << ']' << " ";
+std::ostringstream& Log::get(Level level, const char* module, const char* file, int line) {
+	this->module = module;
+	this->file   = filename(file);
+	this->line   = line;
+	this->level  = level;
+
 	return os;
 }
 

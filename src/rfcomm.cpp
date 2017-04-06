@@ -18,6 +18,8 @@
  *
  *****************************************************************************/
 
+#define PVLIB_LOG_MODULE "rfcomm"
+
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>

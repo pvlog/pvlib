@@ -18,6 +18,8 @@
  *
  *****************************************************************************/
 
+#define PVLIB_LOG_MODULE "smadata2plus"
+
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>

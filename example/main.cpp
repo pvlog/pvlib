@@ -25,11 +25,30 @@
 #include <cstring>
 #include <ctime>
 
+#include <getopt.h>
+
 #include <pvlib.h>
 
+const static char *levelName[] = { "ERROR", "INFO", "WARNING", "DEBUG", "TRACE" };
+#define MAX_LOG_MODULES 20
+
 static void print_usage() {
-	printf("Usage: pvlib MAC PASSWORD\n");
-	printf("Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
+	printf(
+			"Usage: pvlib [options] MAC PASSWORD\n"
+			"Options:\n"
+			"-d \n"
+			"\n"
+			"Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
+}
+
+void log_callback(const char *module, const char *filename, int line, pvlib_log_level level, const char *message) {
+	time_t curTime = time(nullptr);
+	char buffer[30];
+
+	tm* timeinfo = localtime(&curTime);
+	strftime(buffer, 30, "%Y-%m-%d %T", timeinfo);
+
+	printf("%s[%s %s:%d] %s", levelName[(int)level], buffer, filename, line, message);
 }
 
 int main(int argc, char **argv) {
@@ -55,12 +74,29 @@ int main(int argc, char **argv) {
 	uint32_t con;
 	uint32_t prot;
 
-	if (argc < 3) {
+
+	const char *modules[MAX_LOG_MODULES];
+	memset(modules, 0, sizeof(modules));
+
+	int log_modules = 0;
+	int c;
+	while ((c = getopt(argc, argv, "d:")) != -1) {
+		switch (c) {
+		case 'd':
+			modules[log_modules++] = optarg;
+			break;
+		default:
+			print_usage();
+		}
+	}
+
+	if (argc - optind < 2) {
+		printf("opt count %d %d\n", argc, optind);
 		print_usage();
 		return -1;
 	}
 
-	pvlib_init(stderr);
+	pvlib_init(log_callback, modules, PVLIB_LOG_WARNING);
 
 	con_num = pvlib_connections(con_handles, 10);
 
@@ -102,7 +138,7 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 
-	if (pvlib_connect(plant, argv[1], argv[2], NULL, NULL) < 0) {
+	if (pvlib_connect(plant, argv[optind], argv[optind + 1], NULL, NULL) < 0) {
 		fprintf(stderr, "Failed connection with plant!\n");
 		return EXIT_FAILURE;
 	}

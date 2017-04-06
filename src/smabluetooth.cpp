@@ -18,6 +18,8 @@
  *
  *****************************************************************************/
 
+#define PVLIB_LOG_MODULE "smabluetooth"
+
 #include <cstring>
 #include <cstddef>
 #include <cstdlib>

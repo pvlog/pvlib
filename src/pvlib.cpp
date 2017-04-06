@@ -26,6 +26,7 @@
 #include "protocol.h"
 #include "pvlib.h"
 #include "config.h"
+#include "log.h"
 
 using namespace pvlib;
 
@@ -119,25 +120,26 @@ int pvlib_connect(pvlib_plant *plant,
                   const void *connection_param,
                   const void *protocol_param)
 {
-    int ret;
-    if ((ret = plant->con->connect(address, connection_param)) < 0) {
-        return ret;
-    }
+	int ret;
+	if ((ret = plant->con->connect(address, connection_param)) < 0) {
+		return ret;
+	}
+
 	if ((ret = plant->protocol->connect(passwd, protocol_param)) < 0) {
-	    plant->con->disconnect();
-	    return ret;
+		plant->con->disconnect();
+		return ret;
 	}
 
 	return 0;
 }
 
 void pvlib_disconnect(pvlib_plant *plant) {
-    plant->protocol->disconnect();
-    plant->con->disconnect();
+	plant->protocol->disconnect();
+	plant->con->disconnect();
 }
 
-void pvlib_init(FILE *file) {
-	//log_enable(file, LOG_ALL);
+void pvlib_init(pvlib_log_func log_callback, const char *modules[], pvlib_log_level level) {
+	Log::init(log_callback, modules, level);
 }
 
 void pvlib_shutdown(void) {

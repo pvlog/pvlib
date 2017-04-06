@@ -18,6 +18,8 @@
  *
  *****************************************************************************/
 
+#define PVLIB_LOG_MODULE "smanet"
+
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>

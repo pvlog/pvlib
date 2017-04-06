@@ -120,12 +120,25 @@ typedef struct pvlib_event {
 	char    message[255];
 } pvlib_event;
 
+enum pvlib_log_level {
+	PVLIB_LOG_ERROR = 0,
+	PVLIB_LOG_WARNING,
+	PVLIB_LOG_INFO,
+	PVLIB_LOG_DEBUG,
+	PVLIB_LOG_TRACE
+};
+
+typedef void (*pvlib_log_func)(const char* module, const char *file, int line, pvlib_log_level level, const char *str);
+
 /**
  * Initialize pvlib.
  *
- * @param fd file descriptor for logging.
+ * @param log_func callback used for logging.
+ * @param modules modules enables logging
+ *        if set to NULL logging is enabled for all modules.
+ * @param logLevel max level logs ar produced for.
  */
-void pvlib_init(FILE *fd);
+void pvlib_init(pvlib_log_func log_func, const char *modules[], pvlib_log_level logLevel);
 
 /**
  * Get pvlib version.
