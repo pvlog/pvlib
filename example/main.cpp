@@ -37,6 +37,7 @@ static void print_usage() {
 			"Usage: pvlib [options] MAC PASSWORD\n"
 			"Options:\n"
 			"-d \n"
+			"-l \n"
 			"\n"
 			"Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
 }
@@ -80,23 +81,41 @@ int main(int argc, char **argv) {
 
 	int log_modules = 0;
 	int c;
-	while ((c = getopt(argc, argv, "d:")) != -1) {
+	pvlib_log_level log_level = PVLIB_LOG_WARNING;
+	while ((c = getopt(argc, argv, "d:l:")) != -1) {
 		switch (c) {
 		case 'd':
 			modules[log_modules++] = optarg;
 			break;
+		case 'l':
+			if (strcmp(optarg, "error") == 0) {
+				log_level = PVLIB_LOG_ERROR;
+			} else if (strcmp(optarg, "warning") == 0) {
+				log_level = PVLIB_LOG_WARNING;
+			} else if (strcmp(optarg, "info") == 0) {
+				log_level = PVLIB_LOG_INFO;
+			} else if (strcmp(optarg, "debug") == 0) {
+				log_level = PVLIB_LOG_DEBUG;
+			} else if (strcmp(optarg, "trace") == 0) {
+				log_level = PVLIB_LOG_TRACE;
+			} else {
+				printf("Invalid debug level!");
+				print_usage();
+				exit(EXIT_FAILURE);
+			}
+			break;
 		default:
 			print_usage();
+			exit(EXIT_FAILURE);
 		}
 	}
 
 	if (argc - optind < 2) {
-		printf("opt count %d %d\n", argc, optind);
 		print_usage();
-		return -1;
+		exit(EXIT_FAILURE);
 	}
 
-	pvlib_init(log_callback, modules, PVLIB_LOG_WARNING);
+	pvlib_init(log_callback, modules, log_level);
 
 	con_num = pvlib_connections(con_handles, 10);
 
