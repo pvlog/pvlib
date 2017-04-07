@@ -440,7 +440,7 @@ int Smadata2plus::read(Packet *packet) {
 	int macsize = std::min(6, (int)src.size());
 	memcpy(packet->src_mac, src.c_str(), macsize);
 
-	LOG(Trace) << "read smadata2plus packet" << print_array(buf, len);
+	LOG(Trace) << "read smadata2plus packet:\n" << print_array(buf, len);
 
 	packet->ctrl = buf[1];
 	packet->dst = byte::parseU32le(&buf[4]);
