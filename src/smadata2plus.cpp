@@ -755,12 +755,9 @@ int Smadata2plus::syncTime() {
 	}
 
 	time_t last_adjusted = byte::parseU32le(buf + 20);
-	LOG(Info) << "Time last adjusted: " << ctime(&last_adjusted);
 
 	time_t inverter_time1 = byte::parseU32le(buf + 16);
 	time_t inverter_time2 = byte::parseU32le(buf + 24);
-	LOG(Info) << "Inverter time 1: " << ctime(&inverter_time1);
-	LOG(Info) << "Inverter time 2: " << ctime(&inverter_time2);
 
 	uint32_t tz_dst = byte::parseU32le(buf + 28);
 	int tz = tz_dst & 0xfffffe;
