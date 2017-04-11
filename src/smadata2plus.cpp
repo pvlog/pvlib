@@ -768,6 +768,11 @@ int Smadata2plus::syncTime() {
 	uint32_t unknown = byte::parseU32le(buf + 32);
 	uint16_t transaction_cntr = packet.transaction_cntr;
 
+	LOG(Info) << "Time last adjusted: " << timeString(last_adjusted, tz, dst);
+
+	LOG(Info) << "Inverter time 1: " << timeString(inverter_time1, tz, dst);
+	LOG(Info) << "Inverter time 2: " << timeString(inverter_time2, tz, dst);
+
 	memset(&packet, 0x00, sizeof(packet));
 	memset(buf, 0x00, sizeof(buf));
 

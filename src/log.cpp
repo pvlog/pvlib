@@ -32,7 +32,6 @@ pvlib_log_func Log::logCallback = nullptr;
 std::unordered_set<std::string> Log::logModules;
 
 Log::~Log() {
-	os << std::endl;
 	std::string str = os.str();
 	if (logCallback != nullptr) {
 		logCallback(module, file, line, static_cast<pvlib_log_level>(level), str.c_str());

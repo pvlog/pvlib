@@ -18,7 +18,10 @@
  *
  *****************************************************************************/
 
+#include "utility.h"
+
 #include <cstdlib>
+#include <ctime>
 
 #include "config.h"
 
@@ -31,6 +34,15 @@ const char *resources_path() {
 	} else {
 		return RESOURCE_DIR;
 	}
+}
+
+//FIXME: not reentrant
+std::string timeString(time_t time, int tz, bool dst) {
+	time_t tmp = time + tz * 60 + static_cast<int>(dst) * 60;
+	std::tm* now_tm= std::gmtime(&tmp);
+	char buf[42];
+	std::strftime(buf, 42, "%Y-%m-%d %X", now_tm);
+	return buf;
 }
 
 } //namespace pvlib {

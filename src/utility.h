@@ -21,6 +21,8 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 
+#include <string>
+
 #define DISABLE_COPY(CLASS) \
 	CLASS(const CLASS&) = delete; \
 	CLASS& operator=(const CLASS&) = delete;
@@ -31,6 +33,8 @@ namespace pvlib {
  * Returns path to resource folder
  */
 const char *resources_path();
+
+std::string timeString(time_t time, int tz, bool dst);
 }
 
 #endif /* #ifndef UTILITY_H */
