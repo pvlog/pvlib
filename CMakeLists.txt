@@ -40,8 +40,10 @@ if (DOXYGEN_FOUND)
 	add_dependencies(doc doxygen)
 endif (DOXYGEN_FOUND)
 
+set(RESOURCE_DIR ${CMAKE_INSTALL_DATADIR}/pvlib)
+
 #install resources
-install(DIRECTORY resources/ DESTINATION ${CMAKE_INSTALL_DATADIR}/pvlib)
+install(DIRECTORY resources/ DESTINATION ${RESOURCE_DIR})
 
 configure_file(config.h.in config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
