@@ -767,7 +767,7 @@ int Smadata2plus::syncTime() {
 
 	LOG(Info) << "Time last adjusted: " << timeString(last_adjusted, tz, dst);
 
-	LOG(Info) << "Inverter time zone: " << tz << "daylight saving time active: " << dst;
+	LOG(Info) << "Inverter time zone: " << tz << " daylight saving time active: " << dst;
 	LOG(Info) << "Inverter time 1: " << timeString(inverter_time1, tz, dst);
 	LOG(Info) << "Inverter time 2: " << timeString(inverter_time2, tz, dst);
 
