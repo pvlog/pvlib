@@ -61,14 +61,16 @@ static const int  CTRL_NO_BROADCAST = 1 << 6;
 static const int CTRL_UNKNOWN = 1 << 3;
 
 /* address */
-#define SERIAL_BROADCAST 0xffffffff
+static const uint32_t SERIAL_BROADCAST = 0xffffffff;
+static const uint16_t SYSID_BROADCAST = 0xffff;
 static const uint8_t MAC_BROADCAST[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 static const int VOLTAGE_DIVISOR = 100;     //to volts
 static const int CURRENT_DIVISOR = 1000;    // to ampere
 static const int FREQUENCY_DIVISOR = 100;   // to herz
 //static const uint32_t smadata2plus_serial = 0x3b225946;
-static const uint32_t smadata2plus_serial = 0x3a8b74b6;
+static const uint32_t SMADATA2PLUS_SERIAL = 0x3a8b74b6;
+static const uint16_t SMADATA2PLUS_SYSID = 0x0078;
 
 static const int NUM_RETRIES = 3;
 static const uint16_t TRANSACTION_CNTR_START = 0x8000;
@@ -77,8 +79,10 @@ struct Packet {
 	char     src_mac[6];
 	uint16_t transaction_cntr;
 	uint8_t  ctrl;
-	uint32_t dst;
-	uint32_t src;
+	uint32_t dstSerial;
+	uint16_t dstSysId;
+	uint32_t srcSerial;
+	uint16_t srcSysId;
 	uint8_t  flag; /* unknown */
 	uint16_t packet_num;
 	bool     start;
@@ -358,15 +362,13 @@ static Smadata2plus::Device *getDevice(std::vector<Smadata2plus::Device> &device
 	return nullptr;
 }
 
-static int serialToMac(const std::vector<Smadata2plus::Device> &devices, char *mac, uint32_t serial) {
+const Smadata2plus::Device* Smadata2plus::findDevice(uint32_t serial) const {
 	for (const Smadata2plus::Device &device : devices) {
 		if (device.serial == serial) {
-			memcpy(mac, device.mac, 6);
-			return 0;
+			return &device;
 		}
 	}
-
-	return -1;
+	return nullptr;
 }
 
 int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
@@ -384,23 +386,25 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	dw.u8((packet->len + HEADER_SIZE) / 4);
 	dw.u8(packet->ctrl);
 
-	if (packet->dst == SMADATA2PLUS_BROADCAST) {
-		dw.u16le(0xffff);
-		dw.u32le(0xffffffff);
+	if (packet->dstSerial == SMADATA2PLUS_BROADCAST) {
+		dw.u16le(SYSID_BROADCAST);
+		dw.u32le(SERIAL_BROADCAST);
 		memcpy(mac_dst, MAC_BROADCAST, 6);
 	} else {
-		if (serialToMac(devices, mac_dst, packet->dst)
-				< 0) {
-			LOG(Error) << "device: " << packet->dst <<" not in device list!";
+		const Device* device = findDevice(packet->dstSerial);
+		if (device == nullptr) {
+			LOG(Error) << "device: " << packet->dstSerial <<" not in device list!";
 			return -1;
 		}
-		dw.u16le(0x004e);
-		dw.u32le(packet->dst);
+
+		memcpy(mac_dst, device->mac, 6);
+		dw.u16le(device->sysId);
+		dw.u32le(packet->dstSerial);
 	}
 	dw.u8(0x00);
 	dw.u8(packet->flag);
-	dw.u16le(0x0078);
-	dw.u32le(smadata2plus_serial);
+	dw.u16le(SMADATA2PLUS_SYSID);
+	dw.u32le(SMADATA2PLUS_SERIAL);
 	dw.u8(0x00);
 
 	if (packet->ctrl == 0xe8)
@@ -414,7 +418,7 @@ int Smadata2plus::writeReplay(const Packet *packet, uint16_t transactionCntr)
 	byte::storeU16le(&buf[22], transactionCntr);
 
 	memcpy(&buf[size], packet->data, packet->len);
-	LOG(Trace) << "write smadata2plus packet\n" << print_array(buf, packet->len + size);
+	LOG(Trace) << "write smadata2plus packet:\n" << print_array(buf, packet->len + size);
 
 	std::string to(mac_dst, 6);
 	return smanet.write(buf, size + packet->len, to);
@@ -443,8 +447,10 @@ int Smadata2plus::read(Packet *packet) {
 	LOG(Trace) << "read smadata2plus packet:\n" << print_array(buf, len);
 
 	packet->ctrl = buf[1];
-	packet->dst = byte::parseU32le(&buf[4]);
-	packet->src = byte::parseU32le(&buf[12]);
+	packet->dstSysId = byte::parseU16le(&buf[2]);
+	packet->dstSerial = byte::parseU32le(&buf[4]);
+	packet->srcSysId = byte::parseU16le(&buf[10]);
+	packet->srcSerial = byte::parseU32le(&buf[12]);
 	packet->flag = buf[9];
 	packet->start = (buf[23] == 0x80) ? 1 : 0; //Fix
 	packet->packet_num = byte::parseU16le(buf + 20);
@@ -470,7 +476,7 @@ int Smadata2plus::requestChannel(uint32_t serial, uint16_t channel, uint32_t fro
 	memset(buf, 0x00, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = serial;
+	packet.dstSerial = serial;
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -529,8 +535,8 @@ int Smadata2plus::readRecords(uint32_t serial,
 	return 0;
 }
 
-void Smadata2plus::addDevice(uint32_t serial, char *mac) {
-	devices.emplace_back(serial, mac, false);
+void Smadata2plus::addDevice(uint16_t susyId, uint32_t serial, char *mac) {
+	devices.emplace_back(susyId, serial, mac, false);
 }
 
 /*
@@ -549,7 +555,7 @@ int Smadata2plus::logout() {
 	DataWriter dw(buf, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = SERIAL_BROADCAST;
+	packet.dstSerial = SERIAL_BROADCAST;
 	packet.flag = 0x03;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -590,7 +596,7 @@ int Smadata2plus::discoverDevices(int device_num)
 			return -1;
 		}
 
-		addDevice(packet.src, packet.src_mac);
+		addDevice(packet.srcSysId, packet.srcSerial, packet.src_mac);
 	}
 
 	return 0;
@@ -607,7 +613,7 @@ int Smadata2plus::sendPassword(const char *password, Smadata2plus::UserType user
 	DataWriter dw(buf, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = SERIAL_BROADCAST;
+	packet.dstSerial = SERIAL_BROADCAST;
 	packet.flag = 0x01;
 	packet.data = buf;
 	packet.len = sizeof(buf);
@@ -644,7 +650,7 @@ int Smadata2plus::ackAuth(uint32_t serial)
 	memset(buf, 0x00, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER | CTRL_NO_BROADCAST | CTRL_UNKNOWN;
-	packet.dst  = serial;
+	packet.dstSerial  = serial;
 	packet.flag = 0x01;
 	packet.data = buf;
 	packet.len  = sizeof(buf);
@@ -687,12 +693,12 @@ int Smadata2plus::authenticate(const char *password, UserType user)
 			Device *device;
 
 			if ((buf[20 + i] ^ 0x88) != password[i]) {
-				LOG(Info) << "Plant authentication error, serial: " << packet.src;
+				LOG(Info) << "Plant authentication error, serial: " << packet.srcSerial;
 			}
 
-			device = getDevice(devices, packet.src);
+			device = getDevice(devices, packet.srcSerial);
 			if (device == NULL) {
-				LOG(Warning) << "Got authentication answer of non registered device: " << packet.src;
+				LOG(Warning) << "Got authentication answer of non registered device: " << packet.srcSerial;
 			}
 			device->authenticated = true;
 		}
@@ -713,7 +719,7 @@ int Smadata2plus::syncTime() {
 	int ret;
 
 	packet.ctrl = CTRL_MASTER;
-	packet.dst = SERIAL_BROADCAST;
+	packet.dstSerial = SERIAL_BROADCAST;
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = 40;
@@ -775,7 +781,7 @@ int Smadata2plus::syncTime() {
 	memset(buf, 0x00, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER | CTRL_UNKNOWN | CTRL_NO_BROADCAST;
-	packet.dst = devices[0].serial; //FIXME: destination!!!!!!
+	packet.dstSerial = devices[0].serial; //FIXME: destination!!!!!!
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = 8;
@@ -813,7 +819,7 @@ int Smadata2plus::syncTime() {
 		dw.u32le(1);
 
 		packet.ctrl = CTRL_MASTER;
-		packet.dst = SERIAL_BROADCAST;
+		packet.dstSerial = SERIAL_BROADCAST;
 		packet.flag = 0x00;
 		packet.data = buf;
 		packet.len = sizeof(buf);
@@ -1371,7 +1377,7 @@ int Smadata2plus::requestArchiveData(uint32_t serial, uint16_t obj, time_t from,
 	memset(buf, 0x00, sizeof(buf));
 
 	packet.ctrl = CTRL_MASTER | CTRL_NO_BROADCAST;
-	packet.dst = serial;
+	packet.dstSerial = serial;
 	packet.flag = 0x00;
 	packet.data = buf;
 	packet.len = sizeof(buf);

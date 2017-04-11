@@ -71,11 +71,13 @@ public:
 	virtual int readEvents(uint32_t id, time_t from, time_t to, pvlib_event **events) override;
 
 	struct Device {
+		uint16_t sysId;
 		uint32_t serial;
 		char     mac[6];
 		bool     authenticated;
 
-		Device(uint32_t serial, const char *mac, bool authenticated) :
+		Device(uint16_t sysId, uint32_t serial, const char *mac, bool authenticated) :
+				sysId(sysId),
 				serial(serial),
 				authenticated(authenticated) {
 			memcpy(this->mac, mac, sizeof(this->mac));
@@ -122,6 +124,8 @@ public:
 			time_t to, std::vector<TotalDayData> &eventData);
 
 private:
+	const Device* findDevice(uint32_t serial) const;
+
 	int writeReplay(const Packet *packet, uint16_t transactionCntr);
 
 	int write(const Packet *packet);
@@ -139,7 +143,7 @@ private:
 
 	int discoverDevices(int deviceNum);
 
-	void addDevice(uint32_t serial, char *mac);
+	void addDevice(uint16_t susyId, uint32_t serial, char *mac);
 
 	int sendPassword(const char *password, UserType user);
 
