@@ -38,10 +38,10 @@ const char *resources_path() {
 
 //FIXME: not reentrant
 std::string timeString(time_t time, int tz, bool dst) {
-	time_t tmp = time + tz * 60 + static_cast<int>(dst) * 60;
-	std::tm* now_tm= std::gmtime(&tmp);
+	time_t tmp = time + tz + static_cast<int>(dst) * 3600;
+	std::tm* nowTm= std::gmtime(&tmp);
 	char buf[42];
-	std::strftime(buf, 42, "%Y-%m-%d %X", now_tm);
+	std::strftime(buf, 42, "%Y-%m-%d %X", nowTm);
 	return buf;
 }
 
