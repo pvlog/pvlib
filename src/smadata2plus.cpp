@@ -1520,9 +1520,19 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 
 	std::vector<TotalDayData> dayData;
 
-	if ((ret = readTotalDayData(id, from, to, dayData)) < 0) {
-		return ret;
-	}
+	int cnt = 0;
+	do {
+		ret = readTotalDayData(id, from, to, dayData);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG(Error) << "Reading total day data failed!";
+			return ret;
+		} else if (ret < 0){
+			LOG(Warning) << "Reading total day data failed! Retrying ...";
+			cnt++;
+			sleep_for(seconds(cnt));
+		}
+	} while (ret < 0);
+
 
 	if (dayData.size() < 2) {
 		return 0;
@@ -1535,7 +1545,7 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 		return -1;
 	}
 
-	int cnt = 0;
+	int pos = 0;
 	for (size_t i = 1; i < dayData.size(); ++i) {
 		const TotalDayData &prev = dayData.at(i - 1);
 		const TotalDayData &cur  = dayData.at(i);
@@ -1547,22 +1557,31 @@ int Smadata2plus::readDayYield(uint32_t id, time_t from, time_t to, pvlib_day_yi
 
 		int64_t dayYield = cur.totalYield - prev.totalYield;
 
-		result[cnt].dayYield = dayYield;
-		result[cnt].date     = cur.time;
+		result[pos].dayYield = dayYield;
+		result[pos].date     = cur.time;
 
-		++cnt;
+		++pos;
 	}
 
-	return cnt;
+	return pos;
 }
 
 int Smadata2plus::readEvents(uint32_t id, time_t from, time_t to, pvlib_event** events) {
 	std::vector<EventData> eventData;
 	int ret;
 
-	if ((ret = readEventData(id, from, to, USER, eventData)) < 0) {
-		return ret;
-	}
+	int cnt = 0;
+	do {
+		ret = readEventData(id, from, to, USER, eventData);
+		if (cnt > NUM_RETRIES && ret < 0) {
+			LOG(Error) << "Reading event data failed!";
+			return ret;
+		} else if (ret < 0){
+			LOG(Warning) << "Reading event data failed! Retrying ...";
+			cnt++;
+			sleep_for(seconds(cnt));
+		}
+	} while (ret < 0);
 
 	*events = (pvlib_event*)malloc(sizeof(pvlib_event) * eventData.size());
 	if (*events == nullptr) {
