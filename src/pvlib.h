@@ -54,6 +54,7 @@ typedef enum pvlib_protocol {
 } pvlib_protocol;
 
 typedef struct pvlib_ac {
+	time_t time;
 	int32_t totalPower; ///< current power of string inverter in watts
 
 	int32_t power[3]; ///< current power of phase in watts
@@ -68,6 +69,7 @@ typedef struct pvlib_ac {
 void pvlib_init_ac(pvlib_ac *ac);
 
 typedef struct pvlib_dc {
+	time_t time;
 	int32_t totalPower; ///<current power in watts
 
 	int32_t power[3]; ///<current power in watts
@@ -80,6 +82,7 @@ typedef struct pvlib_dc {
 void pvlib_init_dc(pvlib_dc *dc);
 
 typedef struct pvlib_stats {
+	time_t time;
 	int64_t totalYield; ///<total produced power in  watt-hours
 	int64_t dayYield; ///<total produced power today in  watt-hours
 
@@ -98,6 +101,7 @@ typedef enum pvlib_status_value {
 }pvlib_status_value;
 
 typedef struct pvlib_status {
+	time_t time;
 	pvlib_status_value status;
 	uint32_t number;
 } pvlib_status;
@@ -129,6 +133,56 @@ enum pvlib_log_level {
 };
 
 typedef void (*pvlib_log_func)(const char* module, const char *file, int line, pvlib_log_level level, const char *str);
+
+/**
+ * Allocate pvlib_ac data structure. Need to be freed with pvlib_free_ac.
+ */
+pvlib_ac *pvlib_alloc_ac();
+
+/**
+ * Free pvlib_ac structure.
+ */
+void pvlib_free_ac(pvlib_ac*);
+
+/**
+ * Allocate pvlib_dc data structure. Need to be freed with pvlib_free_dc.
+ */
+pvlib_dc  *pvlib_alloc_dc();
+
+/**
+ * Free pvlib_dc structure.
+ */
+void pvlib_free_dc(pvlib_dc*);
+
+/**
+ * Allocate pvlib_status data structure. Need to be freed with pvlib_free_status.
+ */
+pvlib_status *pvlib_alloc_status();
+
+/**
+ * Free pvlib_status structure.
+ */
+void pvlib_free_status(pvlib_status*);
+
+/**
+ * Allocate pvlib_stats data structure. Need to be freed with pvlib_free_stats.
+ */
+pvlib_stats *pvlib_alloc_stats();
+
+/**
+ * Free pvlib_stats structure.
+ */
+void pvlib_free_stats(pvlib_stats*);
+
+/**
+ * Allocate pvlib_inverter_info data structure. Need to be freed with pvlib_free_inverter_info.
+ */
+pvlib_inverter_info *pvlib_alloc_inverter_info();
+
+/**
+ * Free pvlib_inverter_info structure.
+ */
+void pvlib_free_inverter_info(pvlib_inverter_info *);
 
 /**
  * Initialize pvlib.

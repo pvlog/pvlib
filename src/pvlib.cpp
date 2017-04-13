@@ -35,6 +35,46 @@ struct pvlib_plant {
 	Protocol *protocol;
 };
 
+pvlib_ac *pvlib_alloc_ac() {
+	return new (std::nothrow) pvlib_ac;
+}
+
+void pvlib_free_ac(pvlib_ac *ac) {
+	delete ac;
+}
+
+pvlib_dc  *pvlib_alloc_dc() {
+	return new (std::nothrow) pvlib_dc;
+}
+
+void pvlib_free_dc(pvlib_dc *dc) {
+	delete dc;
+}
+
+pvlib_status *pvlib_alloc_status() {
+	return new (std::nothrow) pvlib_status;
+}
+
+void pvlib_free_status(pvlib_status *status) {
+	delete status;
+}
+
+pvlib_stats *pvlib_alloc_stats() {
+	return new (std::nothrow) pvlib_stats;
+}
+
+void pvlib_free_stats(pvlib_stats* stats) {
+	delete stats;
+}
+
+pvlib_inverter_info *pvlib_alloc_inverter_info() {
+	return new (std::nothrow) pvlib_inverter_info;
+}
+
+void pvlib_free_inverter_info(pvlib_inverter_info * inverter_info) {
+	delete inverter_info;
+}
+
 void pvlib_version(int* major, int* minor, int* patch) {
 	*major = MAJOR_VERSION;
 	*minor = MINOR_VERSION;

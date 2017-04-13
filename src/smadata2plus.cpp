@@ -964,6 +964,7 @@ int Smadata2plus::readAc(uint32_t id, pvlib_ac *ac)
 		}
 	} while (ret < 0);
 
+	ac->time = time(nullptr);
 	ac->phaseNum = 3;
 	for (int i = 0; i < num_recs; i++) {
 		Record *r = &records[i];
@@ -1073,6 +1074,7 @@ int Smadata2plus::readDc(uint32_t id, pvlib_dc *dc)
 
 	dc->trackerNum = 0;
 
+	dc->time = time(nullptr);
 	for (int i = 0; i < num_recs; i++) {
 		Record *r = &records[i];
 		uint32_t value = r->record.r1.value2;
@@ -1151,6 +1153,7 @@ int Smadata2plus::readStats(uint32_t id, pvlib_stats *stats) {
 		}
 	} while (ret < 0);
 
+	stats->time = time(nullptr);
 	for (int i = 0; i < num_recs; i++) {
 		Record *r = &records[i];
 
@@ -1209,6 +1212,7 @@ int Smadata2plus::readStatus(uint32_t id, pvlib_status *status)
 		case DEVICE_STATUS: {
 			Attribute attributes[8];
 			int num_attributes = 8;
+			status->time = r->header.time;
 			parseAttributes(d, sizeof(r->record.r3.data), attributes, &num_attributes);
 			for (int i = 0; i < num_attributes; i++) {
 				if (attributes[i].selected) {

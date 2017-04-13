@@ -55,12 +55,6 @@ void log_callback(const char *module, const char *filename, int line, pvlib_log_
 int main(int argc, char **argv) {
 	pvlib_plant *plant;
 
-	pvlib_ac ac;
-	pvlib_dc dc;
-	pvlib_stats stats;
-	pvlib_status status;
-	pvlib_inverter_info inverter_info;
-
 	int inv_num;
 	uint32_t inv_handle;
 
@@ -180,41 +174,52 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	pvlib_ac *ac = pvlib_alloc_ac();
+	pvlib_dc *dc = pvlib_alloc_dc();
+	pvlib_stats *stats = pvlib_alloc_stats();
+	pvlib_status *status = pvlib_alloc_status();
+	pvlib_inverter_info *inverter_info = pvlib_alloc_inverter_info();
+
+	if (ac == nullptr || dc == nullptr || stats == nullptr || status == nullptr || inverter_info == nullptr) {
+		fprintf(stderr, "Out of memory!");
+		return EXIT_FAILURE;
+	}
+
 	// Read inverter ac data
-	if (pvlib_get_ac_values(plant, inv_handle, &ac) < 0) {
+	if (pvlib_get_ac_values(plant, inv_handle, ac) < 0) {
 		fprintf(stderr, "get live values failed!\n");
 		return -1;
 	}
 
 	// Read inverter dc data
-	if (pvlib_get_dc_values(plant, inv_handle, &dc) < 0) {
+	if (pvlib_get_dc_values(plant, inv_handle, dc) < 0) {
 		fprintf(stderr, "get live values failed!\n");
 		return -1;
 	}
 
 	// Read inverter stats
-	if (pvlib_get_stats(plant, inv_handle, &stats) < 0) {
+	if (pvlib_get_stats(plant, inv_handle, stats) < 0) {
 		fprintf(stderr, "get stats failed!\n");
 		return -1;
 	}
 
 	// Read inverter status
-	if (pvlib_get_status(plant, inv_handle, &status) < 0) {
+	if (pvlib_get_status(plant, inv_handle, status) < 0) {
 		fprintf(stderr, "get status failed!\n");
 		return -1;
 	}
 
 	// Read inverter info
-	if (pvlib_get_inverter_info(plant, inv_handle, &inverter_info) < 0) {
+	if (pvlib_get_inverter_info(plant, inv_handle, inverter_info) < 0) {
 		fprintf(stderr, "get info failed!\n");
 		return -1;
 	}
-	printf("Manufacture: %s\n", inverter_info.manufacture);
-	printf("Type: %s\n", inverter_info.type);
-	printf("Name: %s\n", inverter_info.name);
-	printf("Firmware: %s\n", inverter_info.firmware_version);
+	printf("Manufacture: %s\n", inverter_info->manufacture);
+	printf("Type: %s\n", inverter_info->type);
+	printf("Name: %s\n", inverter_info->name);
+	printf("Firmware: %s\n", inverter_info->firmware_version);
 
-	printf("status: %d %d\n", status.status, status.number);
+	printf("status: %d %d\n", status->status, status->number);
 
 
 	// Read day yield of the last seven years
