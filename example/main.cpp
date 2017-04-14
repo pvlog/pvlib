@@ -36,13 +36,17 @@ static void print_usage() {
 	printf(
 			"Usage: pvlib [options] MAC PASSWORD\n"
 			"Options:\n"
-			"-d \n"
-			"-l \n"
+			"-d <module> modules logging should be enabled for.\n"
+			"-l <severity> log severity can be error, warning, info, debug, trace.\n"
+			"-s read spot data."
+			"-e read event archive"
+			"-y read day archive"
+			"-i read inverter info"
 			"\n"
 			"Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
 }
 
-void log_callback(const char *module, const char *filename, int line, pvlib_log_level level, const char *message) {
+static void log_callback(const char *module, const char *filename, int line, pvlib_log_level level, const char *message) {
 	time_t curTime = time(nullptr);
 	char buffer[30];
 
@@ -50,6 +54,121 @@ void log_callback(const char *module, const char *filename, int line, pvlib_log_
 	strftime(buffer, 30, "%Y-%m-%d %T", timeinfo);
 
 	printf("%s[%s %s:%d] %s", levelName[(int)level], buffer, filename, line, message);
+}
+
+static int getInverterInfo(pvlib_plant* plant, uint32_t inv_handle) {
+	pvlib_status *status = pvlib_alloc_status();
+	pvlib_inverter_info *inverter_info = pvlib_alloc_inverter_info();
+	pvlib_stats *stats = pvlib_alloc_stats();
+	if (stats == nullptr || status == nullptr || inverter_info == nullptr) {
+		fprintf(stderr, "Out of memory!");
+		return -1;
+	}
+
+	// Read inverter status
+	if (pvlib_get_status(plant, inv_handle, status) < 0) {
+		fprintf(stderr, "get status failed!\n");
+		pvlib_free_inverter_info(inverter_info);
+		pvlib_free_status(status);
+		return -1;
+	}
+
+	// Read inverter info
+	if (pvlib_get_inverter_info(plant, inv_handle, inverter_info) < 0) {
+		fprintf(stderr, "get info failed!\n");
+		pvlib_free_inverter_info(inverter_info);
+		pvlib_free_status(status);
+		return -1;
+	}
+	printf("Manufacture: %s\n", inverter_info->manufacture);
+	printf("Type: %s\n", inverter_info->type);
+	printf("Name: %s\n", inverter_info->name);
+	printf("Firmware: %s\n", inverter_info->firmware_version);
+	printf("status: %d %d\n", status->status, status->number);
+
+	// Read inverter stats
+	if (pvlib_get_stats(plant, inv_handle, stats) < 0) {
+		fprintf(stderr, "get stats failed!\n");
+		pvlib_free_inverter_info(inverter_info);
+		pvlib_free_status(status);
+		return -1;
+	}
+
+	pvlib_free_inverter_info(inverter_info);
+	pvlib_free_status(status);
+
+	return 0;
+}
+
+static int getSpotData(pvlib_plant* plant, uint32_t inv_handle) {
+	pvlib_ac *ac = pvlib_alloc_ac();
+	pvlib_dc *dc = pvlib_alloc_dc();
+	if (ac == nullptr || dc == nullptr) {
+		fprintf(stderr, "Out of memory!");
+		return EXIT_FAILURE;
+	}
+
+	// Read inverter ac data
+	if (pvlib_get_ac_values(plant, inv_handle, ac) < 0) {
+		fprintf(stderr, "get live values failed!\n");
+		pvlib_free_ac(ac);
+		pvlib_free_dc(dc);
+		return -1;
+	}
+
+	// Read inverter dc data
+	if (pvlib_get_dc_values(plant, inv_handle, dc) < 0) {
+		fprintf(stderr, "get live values failed!\n");
+		pvlib_free_ac(ac);
+		pvlib_free_dc(dc);
+		return -1;
+	}
+
+	pvlib_free_ac(ac);
+	pvlib_free_dc(dc);
+
+	return 0;
+}
+
+static int getDayArchive(pvlib_plant* plant, uint32_t inv_handle) {
+	time_t to = time(0);
+	time_t from = to - 24 * 60 * 60 * 7;
+
+	int days = 0;
+	pvlib_day_yield *dayYield;
+	if ((days = pvlib_get_day_yield(plant, inv_handle, from, to, &dayYield)) < 0) {
+		fprintf(stderr, "get day yield failed\n");
+		return -1;
+
+	}
+
+	for (int i = 0; i < days; ++i) {
+		printf("%s: %d\n", ctime(&dayYield[i].date), (int32_t)dayYield[i].dayYield);
+	}
+
+	free(dayYield);
+
+	return 0;
+}
+
+static int getEventArchive(pvlib_plant* plant, uint32_t inv_handle) {
+	pvlib_event *events;
+	int eventNum;
+	time_t to = time(0);
+	time_t from = to - 24 * 60 * 60 * 7;
+	if ((eventNum = pvlib_get_events(plant, inv_handle, from, to, &events)) < 0) {
+		fprintf(stderr, "get day events failed\n");
+		return -1;
+
+	}
+
+	for (int i = 0; i < eventNum; ++i) {
+		printf("%s: %s (%d)\n", ctime(&events[i].time), events[i].message, events[i].value);
+	}
+
+	free(events);
+
+	return 0;
 }
 
 int main(int argc, char **argv) {
@@ -68,6 +187,10 @@ int main(int argc, char **argv) {
 
 	uint32_t con;
 	uint32_t prot;
+	bool readSpotData = false;
+	bool readEventArchive = false;
+	bool readDayArchive = false;
+	bool readInverterInfo = false;
 
 
 	const char *modules[MAX_LOG_MODULES];
@@ -97,6 +220,18 @@ int main(int argc, char **argv) {
 				print_usage();
 				exit(EXIT_FAILURE);
 			}
+			break;
+		case 's':
+			readSpotData = true;
+			break;
+		case 'e':
+			readEventArchive = true;
+			break;
+		case 'y':
+			readDayArchive = true;
+			break;
+		case 'i':
+			readInverterInfo = true;
 			break;
 		default:
 			print_usage();
@@ -174,82 +309,30 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	pvlib_ac *ac = pvlib_alloc_ac();
-	pvlib_dc *dc = pvlib_alloc_dc();
-	pvlib_stats *stats = pvlib_alloc_stats();
-	pvlib_status *status = pvlib_alloc_status();
-	pvlib_inverter_info *inverter_info = pvlib_alloc_inverter_info();
-
-	if (ac == nullptr || dc == nullptr || stats == nullptr || status == nullptr || inverter_info == nullptr) {
-		fprintf(stderr, "Out of memory!");
-		return EXIT_FAILURE;
+	if (readInverterInfo) {
+		if (getInverterInfo(plant, inv_handle) < 0) {
+			return EXIT_FAILURE;
+		}
 	}
 
-	// Read inverter ac data
-	if (pvlib_get_ac_values(plant, inv_handle, ac) < 0) {
-		fprintf(stderr, "get live values failed!\n");
-		return -1;
+
+	if (readSpotData) {
+		if (getSpotData(plant, inv_handle) < 0) {
+			return EXIT_FAILURE;
+		}
 	}
 
-	// Read inverter dc data
-	if (pvlib_get_dc_values(plant, inv_handle, dc) < 0) {
-		fprintf(stderr, "get live values failed!\n");
-		return -1;
-	}
-
-	// Read inverter stats
-	if (pvlib_get_stats(plant, inv_handle, stats) < 0) {
-		fprintf(stderr, "get stats failed!\n");
-		return -1;
-	}
-
-	// Read inverter status
-	if (pvlib_get_status(plant, inv_handle, status) < 0) {
-		fprintf(stderr, "get status failed!\n");
-		return -1;
-	}
-
-	// Read inverter info
-	if (pvlib_get_inverter_info(plant, inv_handle, inverter_info) < 0) {
-		fprintf(stderr, "get info failed!\n");
-		return -1;
-	}
-	printf("Manufacture: %s\n", inverter_info->manufacture);
-	printf("Type: %s\n", inverter_info->type);
-	printf("Name: %s\n", inverter_info->name);
-	printf("Firmware: %s\n", inverter_info->firmware_version);
-
-	printf("status: %d %d\n", status->status, status->number);
-
-
-	// Read day yield of the last seven years
-	time_t to = time(0);
-	time_t from = to - 24 * 60 * 60 * 7;
-
-	int days = 0;
-	pvlib_day_yield *dayYield;
-	if ((days = pvlib_get_day_yield(plant, inv_handle, from, to, &dayYield)) < 0) {
-		fprintf(stderr, "get day yield failed\n");
-		return -1;
+	if (readDayArchive) {
+		if (getDayArchive(plant, inv_handle) < 0) {
+			return EXIT_FAILURE;
+		}
 
 	}
 
-	for (int i = 0; i < days; ++i) {
-		printf("%s: %d\n", ctime(&dayYield[i].date), (int32_t)dayYield[i].dayYield);
-	}
-
-	// Read events of the last seven years
-	pvlib_event *events;
-	int eventNum;
-	from = 0;
-	if ((eventNum = pvlib_get_events(plant, inv_handle, from, to, &events)) < 0) {
-		fprintf(stderr, "get day events failed\n");
-		return -1;
-
-	}
-
-	for (int i = 0; i < eventNum; ++i) {
-		printf("%s: %s (%d)\n", ctime(&events[i].time), events[i].message, events[i].value);
+	if (readEventArchive) {
+		if (getEventArchive(plant, inv_handle) < 0) {
+			return EXIT_FAILURE;
+		}
 	}
 
 	// Close pvlib

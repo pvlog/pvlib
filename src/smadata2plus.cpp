@@ -815,7 +815,7 @@ int Smadata2plus::syncTime() {
 		dw.u32le(cur_time);
 		dw.u32le(cur_time);
 		dw.u32le(dst | tz);
-		dw.u32le(unknown);
+		dw.u32le(unknown); //TODO: unknown +1 ???
 		dw.u32le(1);
 
 		packet.ctrl = CTRL_MASTER;
