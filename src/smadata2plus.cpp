@@ -776,6 +776,7 @@ int Smadata2plus::syncTime() {
 	LOG(Info) << "Inverter time zone: " << tz << " daylight saving time active: " << dst;
 	LOG(Info) << "Inverter time 1: " << timeString(inverter_time1, tz, dst);
 	LOG(Info) << "Inverter time 2: " << timeString(inverter_time2, tz, dst);
+	LOG(Info) << "Unknown value: " << unknown;
 
 	memset(&packet, 0x00, sizeof(packet));
 	memset(buf, 0x00, sizeof(buf));
@@ -815,7 +816,7 @@ int Smadata2plus::syncTime() {
 		dw.u32le(cur_time);
 		dw.u32le(cur_time);
 		dw.u32le(dst | tz);
-		dw.u32le(unknown); //TODO: unknown +1 ???
+		dw.u32le(++unknown);
 		dw.u32le(1);
 
 		packet.ctrl = CTRL_MASTER;
