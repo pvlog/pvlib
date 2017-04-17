@@ -53,7 +53,7 @@ static void log_callback(const char *module, const char *filename, int line, pvl
 	tm* timeinfo = localtime(&curTime);
 	strftime(buffer, 30, "%Y-%m-%d %T", timeinfo);
 
-	printf("%s[%s %s:%d] %s", levelName[(int)level], buffer, filename, line, message);
+	printf("%s[%s %s:%d] %s\n", levelName[(int)level], buffer, filename, line, message);
 }
 
 static int getInverterInfo(pvlib_plant* plant, uint32_t inv_handle) {
