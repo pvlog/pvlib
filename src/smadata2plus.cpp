@@ -797,12 +797,40 @@ int Smadata2plus::syncTime() {
 		return ret;
 	}
 
-	//FIXME: SunnyExplorer sends an packet with inverter time
+	memset(&packet, 0x00, sizeof(packet));
+	memset(buf, 0x00, sizeof(buf));
+
+	packet.ctrl = CTRL_MASTER;
+	packet.dstSerial = SERIAL_BROADCAST;
+	packet.flag = 0x00;
+	packet.data = buf;
+	packet.len = 40;
+	packet.packet_num = 0;
+	packet.start = 1;
+	DataWriter dw1(buf, sizeof(buf));
+
+	dw1.u32le(0xf000020a);
+	dw1.u32le(0x00236d00);
+	dw1.u32le(0x00236d00);
+	dw1.u32le(0x00236d00);
+	dw1.u32le(inverter_time1);
+	dw1.u32le(last_adjusted);
+	dw1.u32le(inverter_time2);
+	dw1.u32le(tz_dst);
+	dw1.u32le(unknown);
+	dw1.u32le(1);
+
+	t.begin();
+	if ((ret = write(&packet)) < 0) {
+		LOG(Error) <<"Error setting date!";
+		return ret;
+	}
+	t.end();
 
 	time_t cur_time = time(NULL);
 
 	time_t timeDeviation = abs(cur_time - inverter_time1);
-	if (timeDeviation > 15) {
+	if (timeDeviation > 15 && timeDeviation < 60 * 5) {
 		LOG(Info) << "time deviation " << timeDeviation << " setting inverter time!";
 		memset(&packet, 0x00, sizeof(packet));
 		memset(buf, 0x00, sizeof(buf));
@@ -833,6 +861,8 @@ int Smadata2plus::syncTime() {
 			return ret;
 		}
 		t.end();
+	} else if (timeDeviation >= 60 * 5) {
+		LOG(Warning) << "time deviation " << timeDeviation << " to high! Time not synced!";
 	}
 
 	return 0;
