@@ -38,10 +38,10 @@ static void print_usage() {
 			"Options:\n"
 			"-d <module> modules logging should be enabled for.\n"
 			"-l <severity> log severity can be error, warning, info, debug, trace.\n"
-			"-s read spot data."
-			"-e read event archive"
-			"-y read day archive"
-			"-i read inverter info"
+			"-s read spot data\n"
+			"-e read event archive\n"
+			"-y read day archive\n"
+			"-i read inverter info\n"
 			"\n"
 			"Example: pvlib \"00:11:22:33:44:55\" \"0000\"\n");
 }
@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
 	int log_modules = 0;
 	int c;
 	pvlib_log_level log_level = PVLIB_LOG_WARNING;
-	while ((c = getopt(argc, argv, "d:l:")) != -1) {
+	while ((c = getopt(argc, argv, "d:l:seyi")) != -1) {
 		switch (c) {
 		case 'd':
 			modules[log_modules++] = optarg;
