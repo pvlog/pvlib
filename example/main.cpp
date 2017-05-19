@@ -287,7 +287,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (pvlib_connect(plant, argv[optind], argv[optind + 1], NULL, NULL) < 0) {
-		fprintf(stderr, "Failed connection with plant!\n");
+		fprintf(stderr, "Failed connecting with plant!\n");
 		return EXIT_FAILURE;
 	}
 
