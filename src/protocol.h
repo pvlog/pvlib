@@ -1,7 +1,7 @@
 /*
  *   Pvlib - Pvlib interface
  *
- *   Copyright (C) 2011 Protocol interface
+ *   Copyright (C) 2011, 2016 Protocol interface
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
