@@ -121,8 +121,8 @@ int Rfcomm::connect(const char *address, const void *param) {
 		return -1;
 	}
 
-	addr.rc_family = AF_BLUETOOTH;
-	addr.rc_channel = (uint8_t) 1;
+	addr.rc_family  = AF_BLUETOOTH;
+	addr.rc_channel = 1;
 
 	if (str2ba(address, &addr.rc_bdaddr) < 0) {
 		goto err;
